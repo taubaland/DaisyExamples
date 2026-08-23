@@ -9,10 +9,11 @@
 // | KNOB_4        | Brightness for Select LED 1                       |
 // | KNOB_5        | Brightness for Select LED 2                       |
 // | KNOB_6        | Brightness for Select LED 3                       |
-// | TOG_SW_1      | Flash rate for Select LED 1 (center=off,up=slow,down=fast) |
-// | TOG_SW_2      | Flash rate for Select LED 2 (center=off,up=slow,down=fast) |
-// | TOG_SW_3      | Flash rate for Select LED 3 (center=off,up=slow,down=fast) |
-// | SW_SEL_1      | Cycles select LEDs: normal → all full → all off   |
+// | TOG_SW_1      | Flash rate for Select LED 1 (center=solid,up=slow,down=fast) |
+// | TOG_SW_2      | Flash rate for Select LED 2 (center=solid,up=slow,down=fast) |
+// | TOG_SW_3      | Flash rate for Select LED 3 (center=solid,up=slow,down=fast) |
+// | SW_SEL_1      | Momentary all select LEDs off                              |
+// | SW_SEL_2      | Momentary all select LEDs on                               |
 // | SW_FS_1       | Momentary: left footswitch LED on while held      |
 // | SW_FS_2       | Toggle: right footswitch LED + all relays         |
 
@@ -25,9 +26,6 @@ DaisyBoonta hw;
 // Flash period in ms for each switch rate
 static constexpr uint32_t kSlowPeriodMs = 1000; // 1 Hz
 static constexpr uint32_t kFastPeriodMs = 125;  // 8 Hz
-
-// Override state for select button: 0=normal, 1=all full, 2=all off
-static uint8_t sel_override = 0;
 
 // Toggle state for right footswitch LED + relays
 static bool fs2_toggled = false;
@@ -48,7 +46,7 @@ static bool LedActive(int sw_pos)
     {
         case Switch3::POS_UP:   return FlashOn(kSlowPeriodMs);
         case Switch3::POS_DOWN: return FlashOn(kFastPeriodMs);
-        default: return false; // POS_CENTER = off
+        default: return true; // POS_CENTER = solid on
     }
 }
 
@@ -69,10 +67,6 @@ int main(void)
         float br2 = hw.GetKnobValue(DaisyBoonta::KNOB_5);
         float br3 = hw.GetKnobValue(DaisyBoonta::KNOB_6);
 
-        // --- Select button: cycle override state ---
-        if(hw.switches[DaisyBoonta::SW_SEL_1].RisingEdge())
-            sel_override = (sel_override + 1) % 3;
-
         // --- Right footswitch: toggle LED + relays on rising edge ---
         if(hw.switches[DaisyBoonta::SW_FS_2].RisingEdge())
         {
@@ -92,20 +86,20 @@ int main(void)
         bool led2_on = LedActive(sw2_pos);
         bool led3_on = LedActive(sw3_pos);
 
-        // --- Apply select override ---
-        if(sel_override == 1)
+        // --- Momentary select overrides ---
+        if(hw.switches[DaisyBoonta::SW_SEL_1].Pressed())
         {
-            // All select LEDs full white at max brightness
-            hw.SetSelectLed(DaisyBoonta::SELECT_LED_1, 1.f, 1.f, 1.f);
-            hw.SetSelectLed(DaisyBoonta::SELECT_LED_2, 1.f, 1.f, 1.f);
-            hw.SetSelectLed(DaisyBoonta::SELECT_LED_3, 1.f, 1.f, 1.f);
-        }
-        else if(sel_override == 2)
-        {
-            // All select LEDs off
+            // All select LEDs off while held
             hw.SetSelectLed(DaisyBoonta::SELECT_LED_1, 0.f, 0.f, 0.f);
             hw.SetSelectLed(DaisyBoonta::SELECT_LED_2, 0.f, 0.f, 0.f);
             hw.SetSelectLed(DaisyBoonta::SELECT_LED_3, 0.f, 0.f, 0.f);
+        }
+        else if(hw.switches[DaisyBoonta::SW_SEL_2].Pressed())
+        {
+            // All select LEDs full white while held
+            hw.SetSelectLed(DaisyBoonta::SELECT_LED_1, 1.f, 1.f, 1.f);
+            hw.SetSelectLed(DaisyBoonta::SELECT_LED_2, 1.f, 1.f, 1.f);
+            hw.SetSelectLed(DaisyBoonta::SELECT_LED_3, 1.f, 1.f, 1.f);
         }
         else
         {
