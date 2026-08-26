@@ -86,14 +86,17 @@ void LedView::DrawPageLed(const PedalState& state)
 {
     const PedalState::Page page = state.GetPage();
 
-    // Breathe until you have taken control of something on this page, then go
-    // solid. The signal is "you have not grabbed anything here yet", which is
-    // exactly the state in which turning a knob appears to do nothing.
+    // Breathe until something on this page has actually been changed, then go
+    // solid. The signal is "nothing here has been touched since you arrived",
+    // which is also the state in which turning a knob appears to do nothing,
+    // because every knob is still parked.
     //
-    // The condition used to be "any knob still parked", which is true on almost
-    // every page almost always -- you rarely sweep all six -- so the LED pulsed
-    // more or less permanently and carried no information.
-    const float level = state.PageTouched()
+    // Two conditions were tried and discarded. "Any knob still parked" is true
+    // on almost every page almost always -- you rarely sweep all six -- so the
+    // LED pulsed permanently and said nothing. "Any knob picked up" clears the
+    // moment a pot happens to sit on its stored value, which can happen on the
+    // first block after arriving, without anything having been edited.
+    const float level = state.PageEdited()
                             ? 1.f
                             : kParkedFloor
                                   + (1.f - kParkedFloor) * Pulse(kParkedPeriod);

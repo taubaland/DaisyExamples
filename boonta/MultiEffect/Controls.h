@@ -40,17 +40,21 @@ class Controls
     /** Read every input and update the model. Audio-callback context. */
     void Process();
 
+    /** Park every knob against what the model holds now.
+     *
+     *  For when something other than a pot has replaced the parameters
+     *  wholesale -- recalling a preset. Without it, any knob that happened to
+     *  be picked up would overwrite the recalled value on the next block. */
+    void RePark();
+
   private:
     void ReadKnobs();
     void ReadToggles();
     void ReadButtons();
 
     /** Park every knob against the given page, recording which side of the
-     *  stored value each pot currently sits on. */
+     *  stored value each pot currently sits on, and what that value was. */
     void ParkKnobs(PedalState::Page page);
-
-    /** Take every knob live immediately, for the page showing at boot. */
-    void ArmKnobs();
 
     daisy::DaisyBoonta* hw_;
     PedalState*         state_;
@@ -65,6 +69,10 @@ class Controls
      *  the release must not also toggle a bypass. Starts true so a release seen
      *  before any press -- at boot, with a foot already down -- does nothing. */
     bool             fs1_long_fired_;
+
+    /** Each knob's parameter as it stood on arriving at the page, so "has this
+     *  been edited since I got here" can be answered. */
+    float            entry_value_[PedalState::kKnobCount];
 };
 
 #endif

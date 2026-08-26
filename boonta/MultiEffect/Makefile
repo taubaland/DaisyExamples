@@ -9,8 +9,10 @@ Controls.cpp \
 DriveEffect.cpp \
 EqEffect.cpp \
 LedView.cpp \
+MidiControl.cpp \
 PedalState.cpp \
-ReverbEffect.cpp
+ReverbEffect.cpp \
+Storage.cpp
 
 # Local headers
 C_INCLUDES += -I.

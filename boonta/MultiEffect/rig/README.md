@@ -54,6 +54,9 @@ make interface
 | `make dsp` | A/B the EQ shelves and the drive, measured at the pedal output |
 | `make response BAND=mid` | measure one EQ band's gain at the note being played (`low`/`mid`/`high`) |
 | `make relays` | sweep all eight relay states, measuring both ends |
+| `make persist` | write a distinctive state, reset the MCU, check it comes back — needs no audio source |
+| `make midiprobe` | find which MIDI output actually reaches the pedal |
+| `make midi PORT="name"` | send CCs and program changes, check the model followed — needs no audio source either |
 
 Devices are found by **name**, not index, because indices move whenever another
 device is plugged in. Override with environment variables:
@@ -78,6 +81,9 @@ device is plugged in. Override with environment variables:
 | `dsp.py` | DSP A/B over fixed bands |
 | `response.py` | one EQ band's gain, measured at the stimulus frequency |
 | `relays.py` | eight-state relay sweep |
+| `persist.py` | saved-settings round trip across a reset |
+| `midi_probe.py` | which MIDI port reaches the pedal, if any |
+| `midi_test.py` | CC and program-change control, checked against the model |
 
 ## Two traps worth knowing
 
@@ -107,6 +113,26 @@ Worth recording, because both were mine and neither was visible from the code:
   −24.7 dBFS at the codec against −54.9 bypassed, a 30 dB difference.
 - **CPU load was ten times my estimate** — 33.8% average, 40.7% peak, measured
   with `PROFILE_CPU` rather than guessed.
+
+## Finding the MIDI route
+
+`midiprobe` exists because "send MIDI at it and see" is not one question but
+several. On the setup this was written against, the pedal's TRS MIDI input is
+fed from a Push 3, and only **one of the three Push MIDI ports** the computer
+offers actually forwards to the Push's own MIDI output. The other two are
+silent, as is the system synth. Nothing about the names says which.
+
+Two things make the probe trustworthy where a bare "did it work" does not:
+
+- It counts **received** separately from **accepted**, so a controller sending
+  numbers this pedal does not claim still proves the link is alive.
+- It sends to every port in turn and reports each, rather than testing one and
+  concluding from silence.
+
+Note also that a picked-up knob overwrites a remote change on the next audio
+block -- the hand beats the controller, by design -- so `midi_test.py` parks the
+knobs first. Without that the map looks broken when it is working exactly as
+intended.
 
 ## A third trap: measure where the signal is
 

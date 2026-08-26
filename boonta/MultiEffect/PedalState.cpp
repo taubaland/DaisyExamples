@@ -67,7 +67,7 @@ void PedalState::Reset()
     page_           = PAGE_EQ;
     order_          = 0; // EQ -> Drive -> Reverb
     bypassed_       = true; // boot up out of circuit
-    page_touched_   = true; // Controls arms the boot page, so it starts live
+    page_edited_    = false; // nothing has been changed on the boot page yet
     pickup_pending_ = 0;
 }
 
@@ -84,6 +84,11 @@ void PedalState::NextOrder()
 void PedalState::PrevOrder()
 {
     order_ = (order_ + kOrderCount - 1) % kOrderCount;
+}
+
+void PedalState::SetOrder(int order)
+{
+    order_ = ((order % kOrderCount) + kOrderCount) % kOrderCount;
 }
 
 PedalState::Slot PedalState::SlotAt(int position) const

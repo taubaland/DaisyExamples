@@ -10,6 +10,8 @@
 
 #include "Chain.h"
 #include "PedalState.h"
+#include "MidiMap.h"
+#include "SavedState.h"
 
 static int failures = 0;
 
@@ -479,6 +481,239 @@ static void TestMetaKnobOrder()
           detail);
 }
 
+static void TestSavedStateRoundTrip()
+{
+    // Everything that should survive a power cycle must come back identical.
+    PedalState before;
+    before.Reset();
+    for(int p = 0; p < PedalState::PAGE_LAST; p++)
+        for(int k = 0; k < PedalState::kKnobCount; k++)
+            before.SetKnob((PedalState::Page)p, k, (p * 6 + k) / 24.0f);
+    before.SetPage(PedalState::PAGE_REVERB);
+    before.SetOrder(4);
+    before.SetSlotBypass(PedalState::SLOT_DRIVE, true);
+    before.SetBypass(false);
+
+    const SavedState saved = CaptureState(before);
+
+    PedalState after;
+    after.Reset();
+    const bool ok = ApplyState(saved, &after);
+
+    bool same = ok;
+    for(int p = 0; p < PedalState::PAGE_LAST && same; p++)
+        for(int k = 0; k < PedalState::kKnobCount && same; k++)
+            same = after.GetKnob((PedalState::Page)p, k)
+                   == before.GetKnob((PedalState::Page)p, k);
+    same = same && after.GetPage() == PedalState::PAGE_REVERB
+           && after.GetOrder() == 4
+           && after.SlotBypassed(PedalState::SLOT_DRIVE)
+           && !after.SlotBypassed(PedalState::SLOT_EQ)
+           && !after.IsBypassed();
+
+    Check(same, "saved settings survive a capture/apply round trip");
+    Check(CaptureState(after) == saved, "and re-capture to the identical block");
+}
+
+static void TestSavedStateRejectsGarbage()
+{
+    // Flash that has never been written reads as whatever was left in it, so
+    // ApplyState has to refuse anything it does not recognise rather than boot
+    // the pedal with nonsense in its parameters.
+    PedalState reference;
+    reference.Reset();
+    const SavedState good = CaptureState(reference);
+
+    SavedState bad = good;
+    bad.version = 999;
+    PedalState s1;
+    s1.Reset();
+    Check(!ApplyState(bad, &s1), "a block with an unknown version is refused");
+
+    bad = good;
+    bad.page = 77;
+    Check(!ApplyState(bad, &s1), "an out-of-range page is refused");
+
+    bad = good;
+    bad.order = -3;
+    Check(!ApplyState(bad, &s1), "an out-of-range chain order is refused");
+
+    bad = good;
+    bad.param[0][0] = 4.2f;
+    Check(!ApplyState(bad, &s1), "a parameter outside 0..1 is refused");
+
+    bad = good;
+    bad.param[1][2] = std::nan("");
+    Check(!ApplyState(bad, &s1), "a NaN parameter is refused");
+
+    // A refusal must leave the model untouched, not half-written.
+    Check(CaptureState(s1) == good, "a refused block leaves the model alone");
+}
+
+static void TestSavedStateDetectsChange()
+{
+    // PersistentStorage only erases when the block differs, so != has to be
+    // right or settings either never persist or rewrite flash constantly.
+    PedalState s;
+    s.Reset();
+    const SavedState a = CaptureState(s);
+    PedalState reference;
+    reference.Reset();
+
+    Check(!(a != CaptureState(s)), "an unchanged model compares equal");
+
+    s.SetKnob(PedalState::PAGE_DRIVE, 3, 0.77f);
+    Check(a != CaptureState(s), "a moved knob compares different");
+
+    PedalState t;
+    t.Reset();
+    t.ToggleSlotBypass(PedalState::SLOT_REVERB);
+    Check(a != CaptureState(t), "a slot bypass compares different");
+
+    // The one that matters on hardware: a picked-up knob is rewritten from its
+    // pot every block and the smoothed ADC value wanders in the last decimals.
+    // Compared exactly, an untouched pedal looks like it is being changed a
+    // thousand times a second, the save never settles, and nothing is ever
+    // written. That is precisely the bug this catches.
+    PedalState jitter;
+    jitter.Reset();
+    for(int k = 0; k < PedalState::kKnobCount; k++)
+        jitter.SetKnob(PedalState::PAGE_EQ, k,
+                       reference.GetKnob(PedalState::PAGE_EQ, k)
+                           + (k % 2 ? 1 : -1) * 0.0004f);
+    Check(!(a != CaptureState(jitter)),
+          "ADC jitter below the epsilon does NOT compare as a change");
+
+    PedalState nudged;
+    nudged.Reset();
+    nudged.SetKnob(PedalState::PAGE_EQ, 0,
+                   reference.GetKnob(PedalState::PAGE_EQ, 0) + 0.01f);
+    Check(a != CaptureState(nudged),
+          "a real one-percent move still compares as a change");
+}
+
+static void TestMidiMapDecodes()
+{
+    using namespace midimap;
+
+    bool ok = true;
+    // Every page's six knobs, in order.
+    const struct { uint8_t base; int page; } blocks[] = {
+        {kEqBase, PedalState::PAGE_EQ},
+        {kDriveBase, PedalState::PAGE_DRIVE},
+        {kReverbBase, PedalState::PAGE_REVERB},
+        {kMetaBase, PedalState::PAGE_META},
+    };
+    for(const auto& b : blocks)
+        for(int k = 0; k < PedalState::kKnobCount; k++)
+        {
+            Binding d = Decode(b.base + k);
+            if(d.target != Target::PARAM || d.page != b.page || d.knob != k)
+                ok = false;
+        }
+    Check(ok, "all 24 page parameters decode to the right page and knob");
+
+    Check(Decode(kMasterBypass).target == Target::MASTER_BYPASS,
+          "master bypass decodes");
+    ok = true;
+    for(int s = 0; s < PedalState::SLOT_LAST; s++)
+    {
+        Binding d = Decode(kSlotBase + s);
+        if(d.target != Target::SLOT_BYPASS || d.slot != s)
+            ok = false;
+    }
+    Check(ok, "the three slot bypasses decode to the right slots");
+    Check(Decode(kChainOrder).target == Target::CHAIN_ORDER, "chain order decodes");
+    Check(Decode(kPageSelect).target == Target::PAGE_SELECT, "page select decodes");
+}
+
+static void TestMidiMapIgnoresEverythingElse()
+{
+    using namespace midimap;
+
+    // A pedal that lurched on every modulation or volume message would be
+    // unusable, so anything unmapped must decode to NONE.
+    int mapped = 0;
+    bool reserved_clear = true;
+    for(int cc = 0; cc < 128; cc++)
+    {
+        if(Decode((uint8_t)cc).target != Target::NONE)
+        {
+            mapped++;
+            // 32-63 are the LSBs of controllers 0-31; a 14-bit controller
+            // would move two of our parameters at once.
+            if(cc == 1 || cc == 7 || cc == 11 || (cc >= 32 && cc <= 63)
+               || (cc >= 64 && cc <= 69) || cc >= 120 || cc == 0)
+                reserved_clear = false;
+        }
+    }
+    char detail[64];
+    snprintf(detail, sizeof detail, "(%d of 128 controllers mapped)", mapped);
+    Check(mapped == 30, "exactly 30 controllers are claimed", detail);
+    Check(reserved_clear,
+          "none of them land on defined or LSB controller numbers");
+}
+
+static void TestMidiScaling()
+{
+    using namespace midimap;
+
+    Check(Normalise(0) == 0.0f && Normalise(127) == 1.0f,
+          "a controller at full travel reaches exactly 1.0");
+
+    // Quantise must cover every slot and never run off the end.
+    bool ok = true, saw_last = false, saw_first = false;
+    for(int v = 0; v < 128; v++)
+    {
+        int q = Quantise((uint8_t)v, PedalState::kOrderCount);
+        if(q < 0 || q >= PedalState::kOrderCount)
+            ok = false;
+        if(q == 0)
+            saw_first = true;
+        if(q == PedalState::kOrderCount - 1)
+            saw_last = true;
+    }
+    Check(ok && saw_first && saw_last,
+          "chain order quantises across all six without overrunning");
+    Check(Quantise(127, PedalState::PAGE_LAST) == PedalState::PAGE_LAST - 1,
+          "a controller at full travel selects the last page");
+
+    Check(!IsOn(63) && IsOn(64), "switch controllers turn on at half travel");
+}
+
+static void TestPresetBankRoundTrip()
+{
+    SavedBank bank{};
+    bank.version = SavedBank::kVersion;
+    bank.current = 3;
+
+    PedalState s;
+    for(int i = 0; i < SavedBank::kPresetCount; i++)
+    {
+        s.Reset();
+        s.SetKnob(PedalState::PAGE_EQ, 0, i / 32.0f);
+        s.SetOrder(i % PedalState::kOrderCount);
+        bank.preset[i] = CaptureState(s);
+    }
+
+    SavedBank copy = bank;
+    Check(!(copy != bank), "an unchanged bank compares equal");
+
+    copy.preset[7].param[0][0] += 0.5f;
+    Check(copy != bank, "a change in any one preset makes the bank differ");
+
+    copy = bank;
+    copy.current = 9;
+    Check(copy != bank, "changing the current preset makes the bank differ");
+
+    // Each slot must come back as itself, not as its neighbour.
+    PedalState out;
+    out.Reset();
+    bool ok = ApplyState(bank.preset[5], &out);
+    ok = ok && out.GetOrder() == (5 % PedalState::kOrderCount);
+    Check(ok, "a preset applies back as the settings it was captured from");
+}
+
 static void TestPageSlotMapping()
 {
     Check(PedalState::PageSlot(PedalState::PAGE_EQ) == PedalState::SLOT_EQ
@@ -596,6 +831,13 @@ int main()
     TestSlotBypassIsTransparentAndRestores();
     TestMetaKnobOrder();
     TestPageSlotMapping();
+    TestSavedStateRoundTrip();
+    TestSavedStateRejectsGarbage();
+    TestSavedStateDetectsChange();
+    TestMidiMapDecodes();
+    TestMidiMapIgnoresEverythingElse();
+    TestMidiScaling();
+    TestPresetBankRoundTrip();
     TestGlobalMixAndLevels();
     TestBypassIsClean();
     TestOddBlockSizes();

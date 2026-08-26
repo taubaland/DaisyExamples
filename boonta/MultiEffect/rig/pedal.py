@@ -68,6 +68,46 @@ def _park_cmds(pots, page, values):
     return cmds
 
 
+def park_current_page():
+    """Park all six knobs of whichever page is showing, against what the model
+    already holds.
+
+    Needed before testing anything remote: a picked-up knob is rewritten from
+    its pot every audio block, so it overwrites a MIDI change within a
+    millisecond. That is the pedal working as designed - the hand beats the
+    controller - but it makes a map test look broken."""
+    out = _run(['printf "PG %d %.4f %.4f %.4f %.4f %.4f %.4f\\n", state.page_, '
+                'hw.knob[0].val_, hw.knob[1].val_, hw.knob[2].val_, '
+                'hw.knob[3].val_, hw.knob[4].val_, hw.knob[5].val_'])
+    page, pots = None, None
+    for line in out.splitlines():
+        if line.startswith("PG "):
+            parts = line.split()[1:]
+            page = int(parts[0])
+            pots = [float(x) for x in parts[1:]]
+    if page is None:
+        raise RuntimeError("could not read page/pots:\n" + out)
+
+    stored_out = _run([f'printf "SV %.4f %.4f %.4f %.4f %.4f %.4f\\n", '
+                       f'state.param_[{page}][0], state.param_[{page}][1], '
+                       f'state.param_[{page}][2], state.param_[{page}][3], '
+                       f'state.param_[{page}][4], state.param_[{page}][5]'])
+    stored = None
+    for line in stored_out.splitlines():
+        if line.startswith("SV "):
+            stored = [float(x) for x in line.split()[1:]]
+    if stored is None:
+        raise RuntimeError("could not read stored values")
+
+    cmds = []
+    for i in range(6):
+        cmds.append(f"set var controls.armed_[{i}] = 0")
+        cmds.append(f"set var controls.entered_above_[{i}] = "
+                    f"{1 if pots[i] - stored[i] > 0 else 0}")
+    _run(cmds)
+    return page
+
+
 def setup(**kw):
     """Apply a pedal state and make it stick against soft pickup."""
     pots = read_pots()

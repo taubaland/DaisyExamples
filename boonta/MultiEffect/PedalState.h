@@ -128,13 +128,18 @@ class PedalState
     void NextOrder();
     void PrevOrder();
 
+    /** Used when restoring saved settings. Controls notices the page moved and
+     *  parks the knobs against it, exactly as if you had walked there. */
+    void SetPage(Page page) { page_ = page; }
+    void SetOrder(int order);
+
     /** Bit i set means knob i has not yet been picked up on the current page,
      *  so the stored value is holding and the pot is ignored. */
     void SetPickupPending(uint32_t mask) { pickup_pending_ = mask; }
 
-    /** Set false on arriving at a page, true as soon as any one of its knobs is
-     *  picked up. */
-    void SetPageTouched(bool touched) { page_touched_ = touched; }
+    /** Set false on arriving at a page, true once a knob there has actually
+     *  moved a parameter. */
+    void SetPageEdited(bool edited) { page_edited_ = edited; }
 
     // --- read by the View and the DSP ----------------------------------
     float GetKnob(Page page, int knob) const { return param_[page][knob]; }
@@ -176,10 +181,13 @@ class PedalState
     bool      IsActive() const { return !bypassed_; }
     uint32_t  PickupPending() const { return pickup_pending_; }
 
-    /** True once at least one knob on the current page has been picked up since
-     *  the page was entered -- that is, once you have taken control of anything
-     *  here. False on a page you have just arrived at and not yet grabbed. */
-    bool      PageTouched() const { return page_touched_; }
+    /** True once a parameter on the current page has actually been changed since
+     *  you arrived at it.
+     *
+     *  Deliberately not "a knob has been picked up": a pot that happens to sit
+     *  on its stored value picks up on the first block, which would clear the
+     *  indicator without anything having been edited. */
+    bool      PageEdited() const { return page_edited_; }
 
   private:
     float     param_[PAGE_LAST][kKnobCount];
@@ -189,7 +197,7 @@ class PedalState
     int       order_;
     bool      bypassed_;
     bool      slot_bypassed_[SLOT_LAST];
-    bool      page_touched_;
+    bool      page_edited_;
     uint32_t  pickup_pending_;
 };
 

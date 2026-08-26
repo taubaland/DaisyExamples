@@ -17,6 +17,10 @@ jobs.
 | `DriveEffect.h/.cpp` | bias, waveshaper, tone, level | model |
 | `ReverbEffect.h/.cpp` | Dattorro plate | model, DaisySP `DelayLine` |
 | `Biquad.h` | RBJ second order sections | nothing |
+| `SavedState.h` | what survives a power cycle, and the conversion either way | model |
+| `MidiMap.h` | which controller does what | model |
+| `MidiControl.h/.cpp` | **Controller, remote** - MIDI in to model | libDaisy, model |
+| `Storage.h/.cpp` | that block in QSPI flash, debounced | libDaisy, model |
 | `MultiEffect.cpp` | wiring only | all of the above |
 | `test/` | host-side DSP tests, `make test` | a host compiler |
 | `rig/` | hardware measurement rig, `make -C rig verify` | the pedal, an interface, openocd |
@@ -101,18 +105,143 @@ is a third case — a pot that stops short of its rail can never reach a stored
 so the end of travel counts as having got there. If your pots fall well short of
 0 or 1, widen `kPickupWindow` in `Controls.cpp`.
 
-The page footswitch LED breathes until you have picked up **one** knob on the
-page, then goes solid — the signal being "you have not grabbed anything here
-yet", which is exactly the state in which turning a knob appears to do nothing.
+The page footswitch LED breathes while **nothing on this page has been changed
+since you arrived at it**, and goes solid the moment something has. That is also
+the state in which turning a knob appears to do nothing, because every knob is
+still parked.
 
-It used to breathe until *all six* were picked up. That reads as reasonable and
-is useless in practice: you rarely sweep all six knobs on a page, so the LED
-pulsed more or less permanently everywhere except the boot page, and a light
-that is always on carries no information.
+Two earlier conditions were tried and are worth knowing about, because both look
+reasonable written down:
 
-The page showing at boot is the exception: `Controls::Init` arms it immediately,
-so at power-on the pots you can see are the truth. Pages you have not visited
-hold the defaults in `PedalState.cpp` until you take them over.
+- *"any knob still parked"* is true on almost every page almost always — you
+  rarely sweep all six — so the LED pulsed permanently and said nothing.
+- *"any knob picked up"* clears the instant a pot happens to sit on its stored
+  value, which can happen on the very first block after arriving, with nothing
+  edited. On the bench that turned out to be common rather than a corner case.
+
+So the test compares each knob against the value it held **on arrival**, not
+against the previous block — an armed knob is rewritten from its pot every
+block, so a frame-to-frame comparison reads as zero however far you turn it.
+
+At boot the knobs are parked, exactly as on any other page arrival, so the pedal
+comes up on its saved settings rather than adopting whatever the pots read. See
+below.
+
+## Saved settings
+
+Every parameter on all four pages, the current page, the chain order, the three
+per-effect bypasses and the master bypass are kept in the Seed's QSPI flash and
+restored at power-on. The pedal comes back up sounding as you left it.
+
+Not saved: the expression reading, which knobs are parked, and whether the page
+has been edited — all rebuilt at boot from the hardware. Nor the toggles, which
+cannot usefully be saved: they are physical three-position switches, so their
+position at power-on *is* the truth.
+
+**This changes what the knobs do at boot.** The pots no longer win at power-on;
+the saved values do, and a knob takes over when you sweep it through its stored
+value, exactly as when changing page. Without that, restoring settings would be
+pointless — the visible page would be overwritten from the pots on the first
+audio block.
+
+Knowing *when* to write is the whole problem. A knob being turned changes the
+model on every audio block, and each save is a flash erase plus a write: slow,
+blocking, and finite at roughly 100k erase cycles. So the save is debounced —
+nothing is written until the pedal has been left alone for two seconds. A full
+knob sweep costs one erase, not a thousand. It runs from the main loop, never
+the audio callback.
+
+Two details that are easy to get wrong, and both were:
+
+- **The comparison needs a tolerance, not equality.** A picked-up knob is
+  rewritten from its pot every block and the smoothed ADC value wanders in the
+  last few decimals forever. Compared exactly, a pedal sitting untouched looks
+  like it is being changed a thousand times a second: the settle timer never
+  expires, so nothing is ever saved. `SavedState::kEpsilon` is two parts in a
+  thousand — far above that noise, far below anything audible.
+- **"Differs from what is saved" and "has stopped moving" are different
+  questions.** The first is asked against the last block written, the second
+  against the last block seen. Conflating them reproduces the bug above even
+  with a tolerance in place.
+
+`SavedState::kVersion` guards the layout: a block written by a different version
+is refused and the defaults stand, which is the difference between "my settings
+reset" and a pedal booting with garbage in its parameters. `ApplyState` also
+range-checks every value, NaN included, because flash that has never been
+written reads as whatever was left in it.
+
+## MIDI
+
+Every parameter and every switch is addressable, on USB and the DIN/TRS input at
+once - whichever sends a message wins, and it does not matter which one it came
+in on. Omni by default; set `midimap::kChannel` to listen to one channel.
+
+| CC | Controls |
+|----|----------|
+| 20 - 25 | EQ page, knobs 1-6 |
+| 26 - 31 | Drive page, knobs 1-6 |
+| 102 - 107 | Reverb page, knobs 1-6 |
+| 108 - 113 | Meta page, knobs 1-6 |
+| 114 | Master bypass (>=64 in circuit) |
+| 115 - 117 | EQ / drive / reverb switched in (>=64 in) |
+| 118 | Chain order, scaled across the six |
+| 119 | Page select, scaled across the four |
+
+Verified end to end over the TRS input: all four pages of parameters, master
+bypass and the per-effect bypasses both ways, chain order across its range, page
+select, program-change recall of presets 5 and 0, and unmapped controllers
+correctly ignored.
+
+**USB does not enumerate, and it is not this code.** On the machine this was
+developed against, the Daisy never appears as a MIDI device; Windows shows only
+"Unknown USB Device (Device Descriptor Request Failed)". Established by
+elimination:
+
+- The cable, port and USB hardware are fine. Jumping the chip into its ROM DFU
+  bootloader -- `MSP`/`PC` from `0x1FF09800`, from a clean `reset halt` -- makes
+  it enumerate immediately as `VID_0483:DF11`, "DFU in FS Mode".
+- libDaisy's own `seed/USB_MIDI` example fails **identically** on the same
+  board, cable and port. So the fault is not in `MidiControl`.
+- The device side is fully configured either way: HSI48 on and ready, `USBSEL`
+  = HSI48, OTG_FS clock enabled, transceiver powered, VBUS valid (`BSVLD=1`),
+  pull-up presented (`DCTL.SDIS=0`), NVIC and `GINTMSK` set. It attaches and
+  never answers.
+- `libdaisy.a` does contain `usb_midi.o` and the patched MIDI descriptors, so it
+  is not a stale or misbuilt library.
+
+That leaves something environmental about libDaisy's USB *device* stack on this
+board. UART MIDI is unaffected and does everything USB would have.
+
+Every number is in a range the MIDI specification leaves undefined - 20-31 and
+102-119. Notably *not* 32-63: those are the LSBs of controllers 0-31, and
+although most gear ignores them, a controller sending 14-bit CCs would move two
+parameters at once. Anything unmapped is ignored, which is most of the 128 - a
+pedal that lurched every time something sent modulation would be unusable.
+
+**A hand on the pedal beats a controller across the room.** Nothing parks the pot
+when a CC arrives, so a remote change to a parameter whose knob is currently
+picked up is overwritten on the next audio block. Leave the knob alone and the
+remote value stands. That falls out of soft pickup rather than being special-
+cased, and it is the right way round.
+
+## Presets
+
+Sixteen, recalled with **program change 0-15** - which is what program change is
+for, rather than spending a controller on it.
+
+There is no separate save gesture. The live settings are written back into
+whichever preset is current, so a preset is a working slot rather than a snapshot
+you have to remember to commit; on a pedal with no screen, a save step you can
+forget is a save step that loses your sound. Recalling another preset saves the
+one you are leaving first, including edits still inside the settle window.
+
+Recalling replaces every parameter at once, so the knobs are re-parked against
+the new values - otherwise a picked-up knob would overwrite what was just
+loaded on the next block.
+
+The whole bank is one block in flash: `PersistentStorage` keeps a single struct
+at a single address, and the flash erases a sector at a time, so writing one
+preset costs exactly what writing all sixteen costs.
 
 ## Chain order
 
@@ -269,11 +398,11 @@ SDRAM, which no app type touches. Verified:
 
 | `APP_TYPE` | Code lands in | Used | SDRAM |
 |---|---|---|---|
-| `BOOT_NONE` (default) | internal FLASH, 128K | 101092 B, 77% | 540828 B |
-| `BOOT_SRAM` | SRAM, 480K | 100840 B, 21% | 540828 B |
-| `BOOT_QSPI` | QSPI, 7936K | 100840 B, 1% | 540828 B |
+| `BOOT_NONE` (default) | internal FLASH, 128K | 105764 B, 81% | 540828 B |
+| `BOOT_SRAM` | SRAM, 480K | 105600 B, 21% | 540828 B |
+| `BOOT_QSPI` | QSPI, 7936K | 105600 B, 1% | 540828 B |
 
-That leaves about 27K of flash. If you outgrow it, uncomment `APP_TYPE` in the
+That leaves about 22K of flash. If you outgrow it, uncomment `APP_TYPE` in the
 `Makefile` and run `make program-boot` once; `make program` (openocd) and the
 `.vscode` debug configuration go away when you do.
 

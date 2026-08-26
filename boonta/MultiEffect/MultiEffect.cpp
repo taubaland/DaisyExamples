@@ -12,8 +12,11 @@
 //
 // Six pots serve four pages, so a pot almost never matches the value the page
 // it just landed on is holding. Controls parks each knob until the pot sweeps
-// through the stored value; the page footswitch LED breathes until every knob
-// on the page has been picked up. See Controls.cpp.
+// through the stored value; the page footswitch LED breathes until something on
+// the page has actually been changed. See Controls.cpp.
+//
+// Settings live in QSPI flash and come back at power-on, so the knobs are parked
+// at boot too -- the saved values win, not the pots. See Storage.cpp.
 //
 // LEDs: the page footswitch shows the current page's colour -- teal EQ, gold
 // drive, purple reverb, white meta. The bypass footswitch is green in circuit
@@ -46,7 +49,9 @@
 #include "Chain.h"
 #include "Controls.h"
 #include "LedView.h"
+#include "MidiControl.h"
 #include "PedalState.h"
+#include "Storage.h"
 
 using namespace daisy;
 
@@ -56,6 +61,8 @@ static PedalState state;
 static Controls   controls;
 static LedView    view;
 static Chain      chain;
+static Storage     storage(hw.seed.qspi);
+static MidiControl midi;
 
 #ifdef PROFILE_CPU
 #include "util/CpuLoadMeter.h"
@@ -124,6 +131,7 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
 #endif
 
     controls.Process();
+    midi.Process();
     chain.Process(state, in, out, size);
 
 #ifdef PROBE_IO
@@ -146,6 +154,16 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
 int main(void)
 {
     hw.Init();
+
+    // MIDI first. USB device enumeration is time-critical -- the host starts
+    // asking for descriptors as soon as the port is live -- and Storage::Init
+    // can block for a flash erase when it has to lay down a fresh bank.
+    midi.Init(&hw, &state);
+
+    // Settings next: Controls parks the knobs against whatever the model holds
+    // on its first pass, so the restore has to have happened by then or the
+    // pedal comes up on its defaults.
+    storage.Init(&state, &controls);
 
     // Note the block size is left where Init() put it. DaisyBoonta initialises
     // its AnalogControl smoothing filters from AudioCallbackRate(), so changing
@@ -170,6 +188,16 @@ int main(void)
     while(1)
     {
         view.Update(state);
+
+        // A program change only asks; the recall itself happens here, because
+        // it means writing the slot being left and that is a flash erase.
+        const int preset = midi.TakePresetRequest();
+        if(preset >= 0)
+            storage.RequestPreset(preset);
+
+        // Debounced, and a flash erase when it does fire -- main loop only.
+        storage.Update(state);
+
         System::Delay(1);
     }
 }

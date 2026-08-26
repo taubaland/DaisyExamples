@@ -19,6 +19,11 @@ static constexpr PedalState::Toggle kToggleMap[DaisyBoonta::TOG_SW_LAST] = {
  *  left by the AnalogControl smoothing. */
 static constexpr float kPickupWindow = 0.01f;
 
+/** How far a knob has to move from where it stood on arriving at a page before
+ *  that page counts as edited. Comfortably above the ADC noise left after
+ *  smoothing, and well below a deliberate turn. */
+static constexpr float kEditWindow = 0.01f;
+
 /** How long the page footswitch has to be held before it counts as a long
  *  press. Shorter than the 500 ms DaisyBoonta::CheckButtonLongPress() uses,
  *  because that felt sluggish under a foot: this switch is held deliberately to
@@ -40,8 +45,15 @@ void Controls::Init(DaisyBoonta* hw, PedalState* state)
     hw_    = hw;
     state_ = state;
 
-    last_page_ = state_->GetPage();
-    ArmKnobs();
+    // PAGE_LAST is not a page, so the first Process() sees the page as having
+    // changed and parks the knobs. That has to happen there rather than here:
+    // StartAdc() has not run yet, so every pot would read zero and park against
+    // the wrong side of its stored value.
+    //
+    // Parking at boot -- rather than adopting the pots -- is what makes saved
+    // settings mean anything. The pedal comes up sounding as you left it, and a
+    // knob takes over when you sweep it through its stored value.
+    last_page_ = PedalState::PAGE_LAST;
 }
 
 void Controls::Process()
@@ -55,15 +67,9 @@ void Controls::Process()
     ReadToggles();
 }
 
-void Controls::ArmKnobs()
+void Controls::RePark()
 {
-    for(int i = 0; i < PedalState::kKnobCount; i++)
-    {
-        armed_[i]         = true;
-        entered_above_[i] = false;
-    }
-    state_->SetPickupPending(0);
-    state_->SetPageTouched(true);
+    ParkKnobs(state_->GetPage());
 }
 
 void Controls::ParkKnobs(PedalState::Page page)
@@ -76,12 +82,11 @@ void Controls::ParkKnobs(PedalState::Page page)
 
         armed_[i]         = false;
         entered_above_[i] = (pot - stored) > 0.f;
+        entry_value_[i]   = stored;
     }
 
-    // Nothing on this page is under your hand yet. The page LED pulses until
-    // one knob is, and then stops -- waiting for all six would leave it pulsing
-    // essentially forever, which says nothing.
-    state_->SetPageTouched(false);
+    // Nothing on this page has been changed yet, so the page LED pulses.
+    state_->SetPageEdited(false);
 }
 
 void Controls::ReadKnobs()
@@ -118,16 +123,25 @@ void Controls::ReadKnobs()
                                      || (pot <= kPickupWindow && diff > 0.f);
 
             if(fabsf(diff) <= kPickupWindow || crossed || unreachable)
-            {
                 armed_[i] = true;
-                state_->SetPageTouched(true);
-            }
             else
                 pending |= (1u << i);
         }
 
         if(armed_[i])
+        {
             state_->SetKnob(page, i, pot);
+
+            // The page LED reports whether anything here has actually been
+            // *changed*, so compare against the value on arrival rather than
+            // against the previous block -- an armed knob is rewritten from its
+            // pot every block, so a frame-to-frame comparison reads as zero
+            // however far you turn it. Picking up is not enough either: a pot
+            // already sitting on its stored value arms on the first block
+            // without anything being edited.
+            if(fabsf(pot - entry_value_[i]) > kEditWindow)
+                state_->SetPageEdited(true);
+        }
     }
 
     state_->SetPickupPending(pending);

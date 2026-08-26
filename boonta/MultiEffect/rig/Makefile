@@ -22,13 +22,17 @@
 #   make response   measure one EQ band's gain at the note you are playing
 #                   (BAND=low|mid|high, default mid)
 #   make relays     sweep all eight relay states, measuring both ends
+#   make persist    check settings survive a reset (needs no audio at all)
+#   make midi       send CCs and check the model moved. PORT="name" to choose
+#                   the port; use `make midiprobe` first if you do not know it
+#   make midiprobe  find which MIDI output actually reaches the pedal
 
 PY = venv/Scripts/python.exe
 ifeq ($(OS),)
 PY = venv/bin/python
 endif
 
-.PHONY: venv interface listen verify dsp response relays clean
+.PHONY: venv interface listen verify dsp response relays persist midi midiprobe clean
 
 BAND ?= mid
 
@@ -56,6 +60,15 @@ response: $(PY)
 
 relays: $(PY)
 	@$(PY) relays.py
+
+persist: $(PY)
+	@$(PY) persist.py
+
+midi: $(PY)
+	@$(PY) midi_test.py $(PORT)
+
+midiprobe: $(PY)
+	@$(PY) midi_probe.py
 
 clean:
 	rm -rf venv __pycache__
