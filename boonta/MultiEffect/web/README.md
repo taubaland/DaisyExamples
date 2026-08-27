@@ -33,6 +33,32 @@ worklet, that is what happened: restart `make serve` and press Play again.
 **Chrome, Edge or Opera.** Web MIDI is not in Safari or Firefox. Everything
 except sending works in those; the preview is plain Web Audio.
 
+## Hosting it
+
+There is nothing to build, so any static host will do, and HTTPS gets you the
+secure context that Web MIDI and `getUserMedia` need. GitHub Pages is set up in
+[`.github/workflows/pages.yml`](../../../.github/workflows/pages.yml).
+
+Pages can only deploy a branch's root or its `/docs`, and this is neither, so
+the workflow uploads the directory as the Pages artifact rather than moving the
+page out to a repository of its own. That is deliberate: `js/midi.js` and
+`js/params.js` are transcriptions of `MidiMap.h` and the effect sources, and
+they have to be reviewed against them. A copy in another repository is a copy
+that drifts.
+
+Two one-time steps, which only a repository admin can do — the Actions tab,
+enable workflows (a fork has them off); then Settings → Pages → Source: GitHub
+Actions. It lands at `https://<owner>.github.io/<repo>/`. Every path in the app
+is relative, including the worklet, which resolves from `import.meta.url`, so
+the extra path prefix costs nothing.
+
+**Your bank does not travel with you.** The sixteen slots live in
+`localStorage`, which is per origin, so `http://localhost:8123` and
+`https://<owner>.github.io` each have their own and neither can see the other.
+Moving from one to the other means **Export bank** on the first and **Import
+file** on the second. The same applies to a private-window session, and to
+clearing site data.
+
 ## Talking to the pedal
 
 Press **Enable MIDI**, then choose an output. Either route works: the Daisy's own

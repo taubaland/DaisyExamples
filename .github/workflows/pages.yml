@@ -1,0 +1,63 @@
+# Publish the MultiEffect editor to GitHub Pages.
+#
+# Pages can only deploy a branch's root or its /docs folder, and the editor is
+# neither -- it lives next to the firmware it mirrors, which is the point: the
+# controller map in web/js/midi.js and the parameter ranges in web/js/params.js
+# are transcriptions of MidiMap.h and the effect sources, and they have to be
+# reviewed against them. Moving the page to its own repository to satisfy the
+# publishing step would put the copy and the original in different places.
+#
+# So this uploads the subdirectory as the Pages artifact instead. Nothing is
+# moved, nothing is built, and no Jekyll runs over it.
+#
+# One-time setup, which only a repository admin can do:
+#   1. Actions tab -- enable workflows (a fork has them off by default).
+#   2. Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+#
+# The site then lands at https://<owner>.github.io/<repo>/ and every path in the
+# app is relative, so the prefix costs nothing.
+
+name: Deploy the MultiEffect editor
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'boonta/MultiEffect/web/**'
+      - '.github/workflows/pages.yml'
+  # Lets you publish from a branch before it is merged: Actions -> this
+  # workflow -> Run workflow, and pick the ref.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and never cancel one half-done: an interrupted deploy
+# leaves the site serving whatever it had got through.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The editor is plain static files; libDaisy and DaisySP are not
+          # needed and are large.
+          submodules: false
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: boonta/MultiEffect/web
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
