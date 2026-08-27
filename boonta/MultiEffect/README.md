@@ -25,7 +25,6 @@ jobs.
 | `MultiEffect.cpp` | wiring only | all of the above |
 | `test/` | host-side DSP tests, `make test` | a host compiler |
 | `rig/` | hardware measurement rig, `make -C rig verify` | the pedal, an interface, openocd |
-| `web/` | browser editor, librarian and preview, `make -C web serve` | a browser, an interface with a MIDI out |
 
 The arrows only ever point one way. `Controls` writes the model and never reads
 an LED; `LedView` and `Chain` read the model and never write it.
@@ -317,10 +316,18 @@ although most gear ignores them, a controller sending 14-bit CCs would move two
 parameters at once. Anything unmapped is ignored, which is most of the 128 - a
 pedal that lurched every time something sent modulation would be unusable.
 
-[`web/`](web) is a browser front end for all of the above: every parameter on
-screen, the sixteen slots as a librarian with names and JSON export, and the DSP
-ported to an AudioWorklet so a sound can be dialled in before it is sent. It
-sends and cannot receive, for the reason above -- there is no MIDI out here.
+[**boonta-multieffect-editor**](https://github.com/taubaland/boonta-multieffect-editor) is a browser front end for all of the
+above: every parameter on screen, the sixteen slots as a librarian with names
+and JSON export, and the DSP ported to an AudioWorklet so a sound can be dialled
+in before it is sent. It sends and cannot receive, for the reason above -- there
+is no MIDI out here.
+
+It lives in its own repository so it can be hosted as a static page. That makes
+one thing this repository's problem: its `js/midi.js` is a transcription of
+`MidiMap.h` and its `js/params.js` of the ranges in the effect sources. **Change
+a controller number or a sweep range here and it has to change there too.**
+Nothing detects the drift -- the editor would simply send the wrong numbers, and
+a pedal with no MIDI out cannot contradict it.
 
 **A hand on the pedal beats a controller across the room.** Nothing parks the pot
 when a CC arrives, so a remote change to a parameter whose knob is currently
