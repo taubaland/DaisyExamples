@@ -12,7 +12,8 @@ LedView.cpp \
 MidiControl.cpp \
 PedalState.cpp \
 ReverbEffect.cpp \
-Storage.cpp
+Storage.cpp \
+UsbDiag.cpp
 
 # Local headers
 C_INCLUDES += -I.

@@ -52,6 +52,7 @@
 #include "MidiControl.h"
 #include "PedalState.h"
 #include "Storage.h"
+#include "UsbDiag.h"
 
 using namespace daisy;
 
@@ -155,6 +156,12 @@ int main(void)
 {
     hw.Init();
 
+    // Trim HSI48 before USB comes up. libDaisy points the USB clock at a
+    // free-running RC oscillator and never locks it to anything; the ROM DFU
+    // bootloader, which enumerates on this board where the app does not, does
+    // lock it. See UsbDiag.h.
+    usbdiag::EnableCrs();
+
     // MIDI first. USB device enumeration is time-critical -- the host starts
     // asking for descriptors as soon as the port is live -- and Storage::Init
     // can block for a flash erase when it has to lay down a fresh bank.
@@ -197,6 +204,10 @@ int main(void)
 
         // Debounced, and a flash erase when it does fire -- main loop only.
         storage.Update(state);
+
+        // Undo libDaisy's PHY clock gating, and sample the USB registers for
+        // the ST-Link. Cheap enough to leave in.
+        usbdiag::Service();
 
         System::Delay(1);
     }
