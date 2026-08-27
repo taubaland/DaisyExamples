@@ -27,16 +27,24 @@ C_INCLUDES += -I.
 # on. See the README.
 # C_DEFS += -DPROBE_IO
 
-# Bootloader. All three effects fit in the 128K internal flash with room to
-# spare (101012 B, 77%), so this is left unset and `make program` / `make
-# program-dfu` work as they do for the Template. The reverb tank is half a
-# megabyte but it lives in SDRAM, which no app type touches.
+# Bootloader. The app outgrew the comfortable part of the 128K internal flash:
+# with MIDI, presets and UsbDiag it reached 91.9%, about 8K of headroom, and the
+# libDaisy upstream merge alone cost 380 bytes of that. BOOT_SRAM runs the app
+# from SRAM instead -- the same build is 24.5% of 480K -- and leaves internal
+# flash to the bootloader. The reverb tank is half a megabyte but it lives in
+# SDRAM, which no app type touches.
 #
-# Uncomment BOOT_SRAM if you outgrow the remaining 27K -- `make program-dfu`
-# then needs the board in bootloader mode, and `make program` (openocd) is no
-# longer available. BOOT_QSPI works too but fetches slower than SRAM, and the
-# reverb is already the busiest thing here.
-# APP_TYPE = BOOT_SRAM
+# What this changes:
+#
+#   make program      gone; openocd cannot write QSPI on this board
+#   make program-dfu  writes the app into QSPI at 0x90040000
+#   make sram         loads straight into SRAM over the ST-Link, no QSPI write
+#   make boot         puts the bootloader in internal flash, over the ST-Link
+#
+# Clearing APP_TYPE returns to internal flash, but remember the bootloader is
+# sitting there: `make boot` and `make program` are two ways of owning the same
+# 128K, and whichever ran last wins.
+APP_TYPE = BOOT_SRAM
 
 # Library Locations
 LIBDAISY_DIR = ../../libDaisy
@@ -51,3 +59,28 @@ include $(SYSTEM_FILES_DIR)/Makefile
 .PHONY: test
 test:
 	$(MAKE) -C test run
+
+# Entry point of the image about to be loaded. Read from the ELF rather than
+# hardcoded, because it moves whenever a change shifts Reset_Handler.
+SRAM_ENTRY = $(shell $(PREFIX)readelf -h $(BUILD_DIR)/$(TARGET).elf 2>/dev/null | awk '/Entry point/ {print $$NF}')
+
+# Load into SRAM over the ST-Link: about a second, no flash wear, and gone on
+# the next power cycle. Needs the bootloader in internal flash and some valid
+# app already in QSPI -- see sram-load.cfg for why it has to catch the
+# bootloader's handover rather than staging the jump itself.
+.PHONY: sram
+sram: all
+	@echo "loading $(BUILD_DIR)/$(TARGET).elf into SRAM, entry $(SRAM_ENTRY)"
+	@$(OCD) -s $(OCD_DIR) $(OCDFLAGS) \
+		-c "set APP_ELF $(BUILD_DIR)/$(TARGET).elf; \
+		    set APP_ENTRY $(SRAM_ENTRY); \
+		    unset -nocomplain _" \
+		-f sram-load.cfg
+
+# The bootloader, over the ST-Link rather than DFU. libDaisy's `program-boot`
+# needs the chip already in DFU mode, which is a chicken-and-egg problem on a
+# board whose app has stopped booting. openocd has no such requirement.
+.PHONY: boot
+boot:
+	$(OCD) -s $(OCD_DIR) $(OCDFLAGS) \
+		-c "program $(BOOT_BIN) 0x08000000 verify reset exit"

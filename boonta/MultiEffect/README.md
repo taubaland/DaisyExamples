@@ -22,6 +22,7 @@ jobs.
 | `MidiControl.h/.cpp` | **Controller, remote** - MIDI in to model | libDaisy, model |
 | `Storage.h/.cpp` | that block in QSPI flash, debounced | libDaisy, model |
 | `UsbDiag.h/.cpp` | USB clock trim, PHY ungate, and a register snapshot for the ST-Link | libDaisy |
+| `sram-load.cfg` | openocd script behind `make sram`: load into SRAM over the ST-Link | openocd, the bootloader |
 | `MultiEffect.cpp` | wiring only | all of the above |
 | `test/` | host-side DSP tests, `make test` | a host compiler |
 | `rig/` | hardware measurement rig, `make -C rig verify` | the pedal, an interface, openocd |
@@ -490,32 +491,118 @@ resume a stale tail rather than a decayed one.
 
 ```
 make
-make program-dfu
+make sram
 ```
 
 `make test` runs the host-side checks; see [Tests](#tests).
 
-`make program` needs openocd's script directory, and its default is a Unix path.
-On a Windows toolchain the Makefile's unquoted `-s $(OCD_DIR)` also breaks on the
-space in `Program Files`, so invoke openocd directly instead:
+This project runs from **SRAM under the Daisy bootloader** (`APP_TYPE =
+BOOT_SRAM`). It used to run from internal flash and no longer fits comfortably:
+with MIDI, presets and `UsbDiag` the build reached 91.9% of the 128K, and one
+upstream libDaisy merge cost 380 bytes of the ~8K left. The same build is 24.5%
+of the 480K SRAM.
+
+| `APP_TYPE` | Code lands in | Used |
+|---|---|---|
+| `BOOT_NONE` | internal FLASH, 128K | 120436 B, 91.9% |
+| `BOOT_SRAM` (this project) | SRAM, 480K | 120444 B, 24.5% |
+| `BOOT_QSPI` | QSPI, 7936K | ~120K, 1% |
+
+The reverb tank is another 540828 B, but it lives in SDRAM, which no app type
+touches.
+
+### Three ways to get code onto the board
+
+| target | writes | needs | survives power cycle |
+|---|---|---|---|
+| `make boot` | bootloader → internal flash | ST-Link | yes, it *is* the boot path |
+| `make program-dfu` | app → QSPI at `0x90040000` | the bootloader in DFU | yes |
+| `make sram` | app → SRAM, ~1 s | ST-Link, bootloader, an app already in QSPI | no |
+
+`make boot` is worth knowing about: libDaisy's `program-boot` needs the chip
+*already* in DFU mode, which is a chicken-and-egg problem on a board whose app
+has stopped booting. openocd writes internal flash with no such requirement, so
+the bootloader can always be reinstalled — and so can a `BOOT_NONE` app, if you
+want the pedal back the way it was.
+
+To get the bootloader into DFU when there is no working app to ask, write
+`0xB0074EFA` (`BootInfo::Type::INF_TIMEOUT`) to `boot_info.status` in backup
+SRAM and reset — it then waits in DFU indefinitely instead of timing out after
+2 s:
 
 ```bash
-openocd -s "/c/Program Files/DaisyToolchain/openocd/scripts" -f interface/stlink.cfg -f target/stm32h7x.cfg -c "program ./build/MultiEffect.elf verify reset exit"
+openocd -s "/c/Program Files/DaisyToolchain/openocd/scripts" -f interface/stlink.cfg -f target/stm32h7x.cfg -c "init; halt; mmw 0x580244e0 0x10000000 0; mmw 0x58024800 0x00000100 0; mww 0x38800000 0xB0074EFA; reset run; shutdown"
 ```
 
-Everything fits in the 128K internal flash, so unlike a lot of three-effect
-builds this one needs no bootloader — the reverb tank is large but it lives in
-SDRAM, which no app type touches. Verified:
+(The two `mmw` writes enable the backup SRAM clock and clear the backup-domain
+write protect, which `System::InitBackupSram()` normally does.)
 
-| `APP_TYPE` | Code lands in | Used | SDRAM |
-|---|---|---|---|
-| `BOOT_NONE` (default) | internal FLASH, 128K | 105764 B, 81% | 540828 B |
-| `BOOT_SRAM` | SRAM, 480K | 105600 B, 21% | 540828 B |
-| `BOOT_QSPI` | QSPI, 7936K | 105600 B, 1% | 540828 B |
+### The SRAM loop, and why it is shaped the way it is
 
-That leaves about 22K of flash. If you outgrow it, uncomment `APP_TYPE` in the
-`Makefile` and run `make program-boot` once; `make program` (openocd) and the
-`.vscode` debug configuration go away when you do.
+`make sram` takes about a second, writes no flash, and wears nothing out. Its
+one subtlety is *where* it takes control, and getting that wrong is a long
+debugging session.
+
+A `BOOT_SRAM` image is **not self-contained**. `startup_stm32h750xx.c` skips
+`SystemInit()` when `BOOT_APP` is defined, and `DaisySeed::Init` only configures
+the clocks at all when it can see a bootloader — it reads `boot_info.version`
+out of backup SRAM, and sets `skip_clocks = true` if that says `LT_v6_0`, which
+is what uninitialised memory reads as. Load such an image with no bootloader
+present and the clocks are never configured: HSI48 stays off (`RCC->CR` reads
+`0x0000c025`, HSI only), so the OTG core's soft reset can never complete
+(`GRSTCTL` sticks at `0x80000001` — AHB idle, `CSRST` asserted forever),
+`USB_CoreInit` returns `HAL_ERROR`, and libDaisy's `Error_Handler()` is a bare
+`while(1)` with no output. The symptom is a board that looks like it is running
+and does nothing.
+
+Nor can you let the bootloader run and then force PC/SP yourself. The
+bootloader spends its time in USB interrupts, so a halt usually lands in Handler
+mode; the app's first stack pop then returns from an exception that is still
+active and bus-faults off the top of DTCMRAM (`BFAR = 0x20020014`, `CFSR`
+BusFault escalated to a forced HardFault).
+
+So `sram-load.cfg` lets the bootloader do the entire handover and catches the
+app on its first instruction with a hardware breakpoint. At that point the core
+is in Thread mode, `MSP` is `0x20020000`, `VTOR` is `0x24000000` and the clocks
+are up — all of it set by the bootloader, none of it faked. Then the image is
+overwritten, `PC` put back, and the core resumed. Measured: caught at
+`0x24000a08` in Thread mode, `verify_image` confirms the resident SRAM matches
+the ELF just built and no longer matches the one in QSPI.
+
+Two details that cost time and are easy to miss:
+
+- The ELF entry point has the Thumb bit set — `readelf` reports `0x24000a09`
+  for an entry at `0x24000a08`. Cortex-M refuses an odd `PC` and openocd says
+  only "Error setting register pc", which is easy to read past because the
+  breakpoint has usually left `PC` in the right place anyway.
+- The breakpoint has to be on the **resident** image's entry, not the new one,
+  since it is the old image the bootloader is about to jump into. The script
+  reads it from the reset vector at `0x24000004` and falls back to the new
+  ELF's entry on a cold start.
+
+### QSPI over the ST-Link
+
+Tempting, and openocd nearly supports it: the shipped `target/stm32h7x.cfg`
+declares an `stmqspi` bank at `0x90000000`, enabled with `-c "set QUADSPI 1"`.
+It did not work here. `stmqspi` drives the QUADSPI peripheral registers
+directly, and the running app owns that peripheral too through `Storage` —
+`flash probe` wedged the core hard enough that every reconnect failed
+examination. Reconnecting at `adapter speed 480` recovered it without a power
+cycle, but the pedal lost the chain order stored in its current preset, so
+something got written that should not have been. Doing it properly needs the app
+stopped *and* a QSPI init sequence openocd can run itself, which is what the
+bootloader otherwise provides. `make program-dfu` is the supported path.
+
+The bootloader advertises the QSPI map, which is worth recording:
+
+```
+@Flash /0x90000000/64*4Kg/0x90040000/60*64Kg/0x90400000/60*64Kg
+```
+
+The preset bank is at offset 0 — `PersistentStorage::Init` defaults to
+`address_offset = 0` — so it sits in the first 256K, and the app goes in at
+`0x90040000`. They do not collide, and a `program-dfu` leaves presets intact.
+Confirmed: the stored chain order survived writing the app.
 
 ## Tests
 
