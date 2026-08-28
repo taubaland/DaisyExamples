@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <vector>
 
 #include "Chain.h"
@@ -13,6 +14,7 @@
 #include "EffectRegistry.h"
 #include "MidiMap.h"
 #include "SavedState.h"
+#include "Sysex.h"
 
 static int failures = 0;
 
@@ -913,6 +915,148 @@ static void TestOddBlockSizes()
     Check(worst < 1e-5f, "a 1000-frame block matches the same audio in 48-frame blocks", detail);
 }
 
+
+// ------------------------------------------------------------ SysEx ---------
+
+/** Every byte strictly between F0 and F7 must have bit 7 clear. This is the
+ *  invariant that matters most: a stray high byte reads as a status byte, so
+ *  the receiver ends the message early and then tries to parse the rest of the
+ *  catalogue as fresh commands. */
+static bool SevenBitClean(const uint8_t* m, size_t n)
+{
+    if(n < 2 || m[0] != 0xF0 || m[n - 1] != 0xF7)
+        return false;
+    for(size_t i = 1; i + 1 < n; i++)
+        if(m[i] & 0x80)
+            return false;
+    return true;
+}
+
+/** Pull a length-prefixed string back out, advancing the cursor. */
+static std::string GetString(const uint8_t* m, size_t n, size_t& at)
+{
+    if(at >= n)
+        return "<overrun>";
+    const size_t len = m[at++];
+    std::string  out;
+    for(size_t i = 0; i < len && at < n; i++)
+        out.push_back(static_cast<char>(m[at++]));
+    return out;
+}
+
+static void TestSysexParsesRequests()
+{
+    using namespace boontasysex;
+
+    const uint8_t framed[] = {0xF0, 0x7D, 0x42, 0x01, 0xF7};
+    const uint8_t bare[]   = {0x7D, 0x42, 0x02};
+    Check(ParseRequest(framed, sizeof(framed)) == Request::IDENTITY,
+          "sysex: identity request, framed");
+    Check(ParseRequest(bare, sizeof(bare)) == Request::CATALOGUE,
+          "sysex: catalogue request, unframed");
+
+    // libDaisy strips F0, and transports disagree about F7, so both shapes of
+    // the same message have to land on the same answer.
+    const uint8_t no_end[] = {0x7D, 0x42, 0x01};
+    Check(ParseRequest(no_end, sizeof(no_end)) == Request::IDENTITY,
+          "sysex: identity request without the terminator");
+
+    const uint8_t other_maker[] = {0x43, 0x42, 0x01};
+    const uint8_t other_dev[]   = {0x7D, 0x11, 0x01};
+    const uint8_t unknown_cmd[] = {0x7D, 0x42, 0x7E};
+    const uint8_t too_short[]   = {0x7D, 0x42};
+    Check(ParseRequest(other_maker, sizeof(other_maker)) == Request::NONE,
+          "sysex: another manufacturer is ignored");
+    Check(ParseRequest(other_dev, sizeof(other_dev)) == Request::NONE,
+          "sysex: another device on the same id is ignored");
+    Check(ParseRequest(unknown_cmd, sizeof(unknown_cmd)) == Request::NONE,
+          "sysex: unknown command is ignored");
+    Check(ParseRequest(too_short, sizeof(too_short)) == Request::NONE,
+          "sysex: truncated message is ignored");
+    Check(ParseRequest(nullptr, 4) == Request::NONE, "sysex: null is ignored");
+}
+
+static void TestSysexIdentity()
+{
+    using namespace boontasysex;
+
+    uint8_t      m[kMaxMessage];
+    const size_t n = EncodeIdentity(m, sizeof(m), effects::Count(),
+                                    PedalState::SLOT_LAST,
+                                    PedalState::kKnobCount,
+                                    SavedBank::kPresetCount);
+
+    Check(n == 10, "sysex: identity is ten bytes");
+    Check(SevenBitClean(m, n), "sysex: identity is 7-bit clean");
+    Check(m[1] == 0x7D && m[2] == 0x42 && m[3] == 0x41,
+          "sysex: identity carries the right header");
+    Check(m[4] == kProtocolVersion, "sysex: identity states the protocol version");
+    Check(m[5] == effects::Count(), "sysex: identity counts the effects");
+    Check(m[6] == PedalState::SLOT_LAST && m[7] == PedalState::kKnobCount
+              && m[8] == SavedBank::kPresetCount,
+          "sysex: identity states slots, knobs and presets");
+}
+
+static void TestSysexCatalogueDescribesEveryEffect()
+{
+    using namespace boontasysex;
+
+    for(int id = 0; id < effects::Count(); id++)
+    {
+        const EffectDesc& d = effects::Get(id)->Desc();
+
+        uint8_t      m[kMaxMessage];
+        const size_t n = EncodeEffect(m, sizeof(m), id, d);
+
+        Check(n > 0, "sysex: effect encodes", d.name);
+        Check(SevenBitClean(m, n), "sysex: effect is 7-bit clean", d.name);
+        Check(m[3] == kRspEffect && m[4] == id,
+              "sysex: effect carries its own id", d.name);
+
+        size_t    at = 5;
+        const int r = m[at++], g = m[at++], b = m[at++];
+        const bool colour_ok = std::fabs(r / 127.f - d.r) < 0.01f
+                               && std::fabs(g / 127.f - d.g) < 0.01f
+                               && std::fabs(b / 127.f - d.b) < 0.01f;
+        Check(colour_ok, "sysex: effect colour round-trips", d.name);
+
+        Check(GetString(m, n, at) == std::string(d.name),
+              "sysex: effect name round-trips", d.name);
+        Check(GetString(m, n, at) == std::string(d.toggle),
+              "sysex: toggle label round-trips", d.name);
+
+        bool params_ok = true;
+        for(int k = 0; k < Effect::kParamCount; k++)
+            if(GetString(m, n, at) != std::string(d.param[k].name))
+                params_ok = false;
+        Check(params_ok, "sysex: six parameter names round-trip in knob order",
+              d.name);
+
+        Check(at == n - 1, "sysex: nothing left over before the terminator",
+              d.name);
+    }
+}
+
+static void TestSysexRefusesToOverrun()
+{
+    using namespace boontasysex;
+
+    uint8_t m[kMaxMessage];
+
+    // A buffer too small has to be refused outright. A truncated message would
+    // be worse than none: with no F7 the receiver swallows whatever follows.
+    Check(EncodeIdentity(m, 4, 3, 3, 6, 16) == 0,
+          "sysex: identity refuses a short buffer");
+    Check(EncodeEffect(m, 8, 0, effects::Get(0)->Desc()) == 0,
+          "sysex: effect refuses a short buffer");
+
+    // A descriptor full of nulls must not crash or emit a high byte.
+    EffectDesc empty{};
+    const size_t n = EncodeEffect(m, sizeof(m), 0, empty);
+    Check(n > 0 && SevenBitClean(m, n),
+          "sysex: a descriptor full of nulls still encodes cleanly");
+}
+
 int main()
 {
     printf("\nBoonta MultiEffect - host DSP tests\n\n");
@@ -939,6 +1083,10 @@ int main()
     TestMidiMapIgnoresEverythingElse();
     TestMidiScaling();
     TestPresetBankRoundTrip();
+    TestSysexParsesRequests();
+    TestSysexIdentity();
+    TestSysexCatalogueDescribesEveryEffect();
+    TestSysexRefusesToOverrun();
     TestGlobalMixAndLevels();
     TestBypassIsClean();
     TestOddBlockSizes();

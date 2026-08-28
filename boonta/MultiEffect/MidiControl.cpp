@@ -1,5 +1,7 @@
 #include "MidiControl.h"
 
+#include "EffectRegistry.h"
+
 using namespace daisy;
 
 /** Where the MIDI input jack is wired.
@@ -49,6 +51,14 @@ void MidiControl::Init(DaisyBoonta* hw, PedalState* state)
     MidiUsbHandler::Config usb_config;
     usb_config.transport_config.periph
         = MidiUsbTransport::Config::INTERNAL;
+
+    // The default is 3, which is tuned for the occasional three-byte message
+    // and not for a catalogue dump. Tx gives up if the class driver is still
+    // busy with the previous packet, so a burst loses messages from the middle
+    // -- an effect vanishes from the editor's list and nothing reports an
+    // error. Raising it costs nothing when there is no burst.
+    usb_config.transport_config.tx_retry_count = 100;
+
     usb_.Init(usb_config);
     usb_.StartReceive();
 }
@@ -91,6 +101,11 @@ void MidiControl::Handle(MidiEvent event)
             ApplyControlChange(cc.control_number, cc.value);
             break;
         }
+        case SystemCommon:
+            if(event.sc_type == SystemExclusive)
+                HandleSysex(event);
+            break;
+
         case ProgramChange:
         {
             const auto pc = event.AsProgramChange();
@@ -154,4 +169,72 @@ void MidiControl::ApplyControlChange(uint8_t cc, uint8_t value)
 
         default: break;
     }
+}
+
+void MidiControl::HandleSysex(const MidiEvent& event)
+{
+    // Audio-callback context, so this only records what was asked for. The
+    // reply is built and sent from ServiceSysex() in the main loop.
+    const auto req = boontasysex::ParseRequest(
+        event.sysex_data, event.sysex_message_len);
+
+    switch(req)
+    {
+        case boontasysex::Request::IDENTITY:
+            identity_pending_ = true;
+            accepted_++;
+            break;
+
+        case boontasysex::Request::CATALOGUE:
+            // Restart from the top rather than continuing: a second request
+            // means the editor did not like what it got the first time.
+            catalogue_next_ = 0;
+            accepted_++;
+            break;
+
+        case boontasysex::Request::NONE:
+        default:
+            // Somebody else's SysEx, or a command this build does not have.
+            break;
+    }
+}
+
+void MidiControl::ServiceSysex()
+{
+    uint8_t msg[boontasysex::kMaxMessage];
+    size_t  len = 0;
+
+    if(identity_pending_)
+    {
+        identity_pending_ = false;
+        len               = boontasysex::EncodeIdentity(msg,
+                                          sizeof(msg),
+                                          effects::Count(),
+                                          PedalState::SLOT_LAST,
+                                          PedalState::kKnobCount,
+                                          SavedBank::kPresetCount);
+    }
+    else if(catalogue_next_ >= 0)
+    {
+        const int id = catalogue_next_;
+        if(id >= effects::Count())
+        {
+            catalogue_next_ = -1;
+            return;
+        }
+        catalogue_next_ = id + 1;
+        len = boontasysex::EncodeEffect(
+            msg, sizeof(msg), id, effects::Get(id)->Desc());
+    }
+
+    if(len == 0)
+        return;
+
+    // USB only, deliberately. The TRS jack on this pedal is an input; the
+    // board file names a MIDI out pin but nothing here has ever confirmed a
+    // socket on the other end of it, and the UART transport sends by polling,
+    // so a few hundred bytes at 31250 baud would block the main loop for
+    // ~100 ms per effect. The editor that wants this is on USB anyway.
+    usb_.SendMessage(msg, len);
+    sysex_sent_++;
 }

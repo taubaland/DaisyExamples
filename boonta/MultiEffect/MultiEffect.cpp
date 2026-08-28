@@ -205,6 +205,10 @@ int main(void)
         // Debounced, and a flash erase when it does fire -- main loop only.
         storage.Update(state);
 
+        // Answer an editor that asked what this pedal is. Main loop because
+        // the reply is long and the transport blocks.
+        midi.ServiceSysex();
+
         // Undo libDaisy's PHY clock gating, and sample the USB registers for
         // the ST-Link. Cheap enough to leave in.
         usbdiag::Service();

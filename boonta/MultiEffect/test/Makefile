@@ -31,7 +31,8 @@ DSP_SOURCES = \
 ../EqEffect.cpp \
 ../DriveEffect.cpp \
 ../ReverbEffect.cpp \
-../PedalState.cpp
+../PedalState.cpp \
+../Sysex.cpp
 
 BUILD_DIR = build
 

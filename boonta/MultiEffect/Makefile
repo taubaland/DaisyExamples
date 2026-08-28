@@ -15,6 +15,7 @@ MidiControl.cpp \
 PedalState.cpp \
 ReverbEffect.cpp \
 Storage.cpp \
+Sysex.cpp \
 UsbDiag.cpp
 
 # Local headers

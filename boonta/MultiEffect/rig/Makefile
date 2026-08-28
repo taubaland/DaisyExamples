@@ -26,6 +26,8 @@
 #   make midi       send CCs and check the model moved. PORT="name" to choose
 #                   the port; use `make midiprobe` first if you do not know it
 #   make midiprobe  find which MIDI output actually reaches the pedal
+#   make sysex      ask the pedal to describe itself over USB, and check the
+#                   answer is well formed
 #   make loopcheck  is the monitoring path feeding the pedal back into itself?
 #                   run this FIRST for any complaint about how it sounds
 
@@ -34,7 +36,7 @@ ifeq ($(OS),)
 PY = venv/bin/python
 endif
 
-.PHONY: venv interface listen verify dsp response relays persist midi midiprobe loopcheck clean
+.PHONY: venv interface listen verify dsp response relays persist midi midiprobe sysex loopcheck clean
 
 BAND ?= mid
 
@@ -68,6 +70,9 @@ persist: $(PY)
 
 midi: $(PY)
 	@$(PY) midi_test.py $(PORT)
+
+sysex: $(PY)
+	@$(PY) sysex.py
 
 midiprobe: $(PY)
 	@$(PY) midi_probe.py

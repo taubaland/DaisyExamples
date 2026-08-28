@@ -22,6 +22,7 @@ jobs.
 | `Biquad.h` | RBJ second order sections | nothing |
 | `SavedState.h` | what survives a power cycle, and the conversion either way | model |
 | `MidiMap.h` | which controller does what | model |
+| `Sysex.h/.cpp` | the pedal describing itself: identity and effect catalogue | `Effect.h` |
 | `MidiControl.h/.cpp` | **Controller, remote** - MIDI in to model | libDaisy, model |
 | `Storage.h/.cpp` | that block in QSPI flash, debounced | libDaisy, model |
 | `UsbDiag.h/.cpp` | USB clock trim, PHY ungate, and a register snapshot for the ST-Link | libDaisy |
@@ -403,6 +404,60 @@ one thing this repository's problem: its `js/midi.js` is a transcription of
 a controller number or a sweep range here and it has to change there too.**
 Nothing detects the drift -- the editor would simply send the wrong numbers, and
 a pedal with no MIDI out cannot contradict it.
+
+### SysEx: the pedal describing itself
+
+Everything above is a controller number an editor has to know in advance, which
+is fine while the numbers are fixed. The effect *catalogue* is not fixed --
+`ID_RNBO` exists only in builds with a patch compiled in -- so there is no
+static answer for anyone to transcribe. The firmware says instead.
+
+    -> F0 7D 42 01 F7                     what are you?
+    <- F0 7D 42 41 <proto> <effects>
+                   <slots> <knobs> <presets> F7
+
+    -> F0 7D 42 02 F7                     what effects do you have?
+    <- F0 7D 42 42 <id> <r> <g> <b>       one message per effect, in id order
+                   <str name> <str toggle>
+                   <str param0> .. <str param5> F7
+
+`0x7D` is the manufacturer id the MIDI specification reserves for
+non-commercial use; `0x42` narrows it so the pedal ignores other people's
+educational-id traffic. `<str>` is a length byte followed by that many
+characters. Colours are 0-127 rather than floats because every byte between F0
+and F7 must have bit 7 clear -- the invariant the host tests check hardest,
+since a stray high byte reads as a status and the receiver would parse the rest
+of the catalogue as fresh commands.
+
+The reply comes from the **main loop**, not the audio callback, for the same
+reason a program change only *requests* a preset: it is a few hundred bytes per
+effect and the transport sends by blocking. One message per pass, so a growing
+registry lengthens the reply rather than any single pass.
+
+**USB only.** The TRS jack on this pedal is an input; the board file names a
+MIDI out pin but nothing here has confirmed a socket on the end of it, and the
+UART transport polls, so a catalogue would block the main loop for ~100 ms per
+effect at 31250 baud. The editor that wants this is on USB anyway.
+
+One libDaisy default worth changing for this: `MidiUsbTransport::Config::
+tx_retry_count` is 3, which suits the occasional three-byte message and not a
+burst. Tx gives up if the class driver is still busy, so a catalogue loses
+messages from the middle -- an effect silently missing from the editor's list.
+`MidiControl::Init` sets it to 100.
+
+`make -C rig sysex` asks a real pedal and checks the answer is well formed.
+Measured on hardware:
+
+```
+protocol 1, 3 effects, 3 slots, 6 knobs, 16 presets
+id 0  EQ      rgb(  0,127,127)  band width: wide / medium / tight
+id 1  Drive   rgb(127,127,  0)  gain range: low / mid / high
+id 2  Reverb  rgb(127,  0,127)  size: room / plate / cavern
+```
+
+Those are the same teal, gold and purple the select LEDs show, which is the
+point: the editor can colour its pages from the pedal rather than from a
+constant somebody has to remember to change twice.
 
 **A hand on the pedal beats a controller across the room.** Nothing parks the pot
 when a CC arrives, so a remote change to a parameter whose knob is currently
