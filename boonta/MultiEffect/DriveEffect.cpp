@@ -64,29 +64,40 @@ void DriveEffect::Init(float sample_rate)
     }
 }
 
-void DriveEffect::Process(const PedalState& state,
-                          float*            left,
-                          float*            right,
-                          size_t            size)
+const EffectDesc& DriveEffect::Desc() const
 {
-    // --- control rate: resolve the model into coefficients once per block ---
-    const int range
-        = static_cast<int>(state.GetToggle(PedalState::TOGGLE_DRIVE_RANGE));
+    static const EffectDesc kDesc = {
+        "Drive",
+        1.0f, 1.0f, 0.0f, // gold
+        "gain range: low / mid / high",
+        {{"gain"}, {"tone"}, {"character"}, {"bias"}, {"level"}, {"mix"}},
+    };
+    return kDesc;
+}
+
+void DriveEffect::Process(const float* params,
+                          int          toggle,
+                          float*       left,
+                          float*       right,
+                          size_t       size)
+{
+    // --- control rate: resolve the knobs into coefficients once per block ---
+    const int range = toggle;
 
     gain_ = kGainMin[range]
             * powf(kGainMax[range] / kGainMin[range],
-                   state.Drive(PedalState::DRIVE_GAIN));
+                   params[0]);
 
-    bias_      = (state.Drive(PedalState::DRIVE_BIAS) - 0.5f) * 2.f * kMaxBias;
-    character_ = state.Drive(PedalState::DRIVE_CHARACTER);
+    bias_      = (params[3] - 0.5f) * 2.f * kMaxBias;
+    character_ = params[2];
 
     const float tone_hz
         = kToneMinHz
-          + state.Drive(PedalState::DRIVE_TONE) * (kToneMaxHz - kToneMinHz);
+          + params[1] * (kToneMaxHz - kToneMinHz);
     tone_coeff_ = fminf(1.f, kTwoPi * tone_hz / sample_rate_);
 
-    level_ = LevelGain(state.Drive(PedalState::DRIVE_LEVEL));
-    mix_   = state.Drive(PedalState::DRIVE_MIX);
+    level_ = LevelGain(params[4]);
+    mix_   = params[5];
 
     // --- audio rate ----------------------------------------------------
     for(size_t i = 0; i < size; i++)

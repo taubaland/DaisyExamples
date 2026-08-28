@@ -4,7 +4,7 @@
 
 #include <stddef.h>
 
-#include "PedalState.h"
+#include "Effect.h"
 
 /** Gain stage: bias -> waveshaper -> DC block -> tone -> level -> mix.
  *
@@ -17,14 +17,17 @@
  *
  *  Processes in place.
  */
-class DriveEffect
+class DriveEffect : public Effect
 {
   public:
     DriveEffect() : sample_rate_(48000.f) {}
 
-    void Init(float sample_rate);
+    void Init(float sample_rate) override;
 
-    void Process(const PedalState& state, float* left, float* right, size_t size);
+    void Process(const float* params, int toggle,
+                 float* left, float* right, size_t size) override;
+
+    const EffectDesc& Desc() const override;
 
   private:
     float ProcessSample(int channel, float in);

@@ -7,7 +7,9 @@ MultiEffect.cpp \
 Chain.cpp \
 Controls.cpp \
 DriveEffect.cpp \
+EffectRegistry.cpp \
 EqEffect.cpp \
+GenEffect.cpp \
 LedView.cpp \
 MidiControl.cpp \
 PedalState.cpp \

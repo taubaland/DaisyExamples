@@ -26,7 +26,7 @@ struct SavedState
      *  block with a version it does not recognise and falls back to defaults,
      *  which is the difference between "settings reset" and a pedal booting
      *  with garbage in its parameters. */
-    static constexpr uint32_t kVersion = 1;
+    static constexpr uint32_t kVersion = 2;
 
     uint32_t version;
     float    param[PedalState::PAGE_LAST][PedalState::kKnobCount];
@@ -34,6 +34,13 @@ struct SavedState
     int32_t  order;
     uint8_t  slot_bypassed[PedalState::SLOT_LAST];
     uint8_t  bypassed;
+
+    /** Which effect is in each slot, by registry id.
+     *
+     *  Without this a preset is meaningless the moment slots are
+     *  interchangeable: six numbers restored into whichever effect happens to
+     *  be loaded would set a reverb's decay from a drive's bias. */
+    uint8_t  slot_effect[PedalState::SLOT_LAST];
 
     /** How far a parameter must differ before the two blocks count as unalike.
      *
@@ -56,7 +63,8 @@ struct SavedState
            || bypassed != o.bypassed)
             return true;
         for(int s = 0; s < PedalState::SLOT_LAST; s++)
-            if(slot_bypassed[s] != o.slot_bypassed[s])
+            if(slot_bypassed[s] != o.slot_bypassed[s]
+               || slot_effect[s] != o.slot_effect[s])
                 return true;
         for(int p = 0; p < PedalState::PAGE_LAST; p++)
             for(int k = 0; k < PedalState::kKnobCount; k++)
@@ -85,7 +93,7 @@ struct SavedState
  */
 struct SavedBank
 {
-    static constexpr uint32_t kVersion    = 2;
+    static constexpr uint32_t kVersion    = 3;
     static constexpr int      kPresetCount = 16; /**< program change 0-15 */
 
     uint32_t   version;
@@ -117,8 +125,11 @@ inline SavedState CaptureState(const PedalState& state)
     s.page  = static_cast<int32_t>(state.GetPage());
     s.order = static_cast<int32_t>(state.GetOrder());
     for(int i = 0; i < PedalState::SLOT_LAST; i++)
-        s.slot_bypassed[i]
-            = state.SlotBypassed(static_cast<PedalState::Slot>(i)) ? 1 : 0;
+    {
+        const PedalState::Slot slot = static_cast<PedalState::Slot>(i);
+        s.slot_bypassed[i] = state.SlotBypassed(slot) ? 1 : 0;
+        s.slot_effect[i]   = static_cast<uint8_t>(state.GetSlotEffect(slot));
+    }
     s.bypassed = state.IsBypassed() ? 1 : 0;
     return s;
 }
@@ -152,8 +163,16 @@ inline bool ApplyState(const SavedState& s, PedalState* state)
     state->SetPage(static_cast<PedalState::Page>(s.page));
     state->SetOrder(s.order);
     for(int i = 0; i < PedalState::SLOT_LAST; i++)
-        state->SetSlotBypass(static_cast<PedalState::Slot>(i),
-                             s.slot_bypassed[i] != 0);
+    {
+        const PedalState::Slot slot = static_cast<PedalState::Slot>(i);
+        state->SetSlotBypass(slot, s.slot_bypassed[i] != 0);
+
+        // Not range-checked against the registry here: SavedState is
+        // deliberately free of it so the round trip stays host-testable. An id
+        // this build does not have resolves to a real effect at lookup time
+        // rather than leaving a hole in the audio path.
+        state->SetSlotEffect(slot, static_cast<int>(s.slot_effect[i]));
+    }
     state->SetBypass(s.bypassed != 0);
     return true;
 }

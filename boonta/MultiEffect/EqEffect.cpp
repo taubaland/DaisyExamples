@@ -51,48 +51,60 @@ void EqEffect::Init(float sample_rate)
     coeffs_valid_ = false;
 }
 
-void EqEffect::UpdateCoeffs(const PedalState& state)
+const EffectDesc& EqEffect::Desc() const
 {
-    const int q_index = static_cast<int>(state.GetToggle(PedalState::TOGGLE_EQ_Q));
+    static const EffectDesc kDesc = {
+        "EQ",
+        0.0f, 1.0f, 1.0f, // teal
+        "band width: wide / medium / tight",
+        {{"low freq"}, {"mid freq"}, {"high freq"},
+         {"low gain"}, {"mid gain"}, {"high gain"}},
+    };
+    return kDesc;
+}
+
+void EqEffect::UpdateCoeffs(const float* params, int toggle)
+{
+    const int q_index = toggle;
 
     bool changed = !coeffs_valid_ || q_index != coeffs_from_q_;
 
-    for(int i = 0; i < PedalState::kKnobCount && !changed; i++)
-        changed = fabsf(state.GetKnob(PedalState::PAGE_EQ, i) - coeffs_from_[i])
-                  > kRedesignEpsilon;
+    for(int i = 0; i < Effect::kParamCount && !changed; i++)
+        changed = fabsf(params[i] - coeffs_from_[i]) > kRedesignEpsilon;
 
     if(!changed)
         return;
 
-    for(int i = 0; i < PedalState::kKnobCount; i++)
-        coeffs_from_[i] = state.GetKnob(PedalState::PAGE_EQ, i);
+    for(int i = 0; i < Effect::kParamCount; i++)
+        coeffs_from_[i] = params[i];
     coeffs_from_q_ = q_index;
     coeffs_valid_  = true;
 
     const float slope = kShelfSlope[q_index];
 
     low_.SetLowShelf(sample_rate_,
-                     SweepHz(state.Eq(PedalState::EQ_LOW_FREQ), kLowMinHz, kLowMaxHz),
-                     GainDb(state.Eq(PedalState::EQ_LOW_GAIN)),
+                     SweepHz(params[0], kLowMinHz, kLowMaxHz),
+                     GainDb(params[3]),
                      slope);
 
     mid_.SetPeaking(sample_rate_,
-                    SweepHz(state.Eq(PedalState::EQ_MID_FREQ), kMidMinHz, kMidMaxHz),
-                    GainDb(state.Eq(PedalState::EQ_MID_GAIN)),
+                    SweepHz(params[1], kMidMinHz, kMidMaxHz),
+                    GainDb(params[4]),
                     kMidQ[q_index]);
 
     high_.SetHighShelf(sample_rate_,
-                       SweepHz(state.Eq(PedalState::EQ_HIGH_FREQ), kHighMinHz, kHighMaxHz),
-                       GainDb(state.Eq(PedalState::EQ_HIGH_GAIN)),
+                       SweepHz(params[2], kHighMinHz, kHighMaxHz),
+                       GainDb(params[5]),
                        slope);
 }
 
-void EqEffect::Process(const PedalState& state,
-                       float*            left,
-                       float*            right,
-                       size_t            size)
+void EqEffect::Process(const float* params,
+                       int          toggle,
+                       float*       left,
+                       float*       right,
+                       size_t       size)
 {
-    UpdateCoeffs(state);
+    UpdateCoeffs(params, toggle);
 
     float* channel[2] = {left, right};
 

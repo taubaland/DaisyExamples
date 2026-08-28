@@ -1,5 +1,7 @@
 #include "LedView.h"
 
+#include "EffectRegistry.h"
+
 using namespace daisy;
 
 /** One colour per page. The first three are also the colours of the three
@@ -23,11 +25,34 @@ static const struct
 {
     float r, g, b;
 } kPageColour[PedalState::PAGE_LAST] = {
-    {0.0f, 1.0f, 1.0f}, // EQ     : teal   (green + blue)
-    {1.0f, 1.0f, 0.0f}, // Drive  : gold   (red + green)
-    {1.0f, 0.0f, 1.0f}, // Reverb : purple (red + blue)
-    {1.0f, 1.0f, 1.0f}, // Meta   : white
+    {1.0f, 1.0f, 1.0f}, // unused: slot pages take their colour from the effect
+    {1.0f, 1.0f, 1.0f},
+    {1.0f, 1.0f, 1.0f},
+    {1.0f, 1.0f, 1.0f}, // Meta : white
 };
+
+/** A page's colour. The three slot pages borrow the colour of whatever effect
+ *  is in them, so swapping an effect swaps its colour everywhere at once; the
+ *  meta page edits the chain rather than an effect, so it keeps its own. */
+static void PageColour(const PedalState& state,
+                       PedalState::Page  page,
+                       float&            r,
+                       float&            g,
+                       float&            b)
+{
+    const PedalState::Slot slot = PedalState::PageSlot(page);
+    if(slot == PedalState::SLOT_LAST)
+    {
+        r = kPageColour[PedalState::PAGE_META].r;
+        g = kPageColour[PedalState::PAGE_META].g;
+        b = kPageColour[PedalState::PAGE_META].b;
+        return;
+    }
+    const EffectDesc& d = effects::Get(state.GetSlotEffect(slot))->Desc();
+    r = d.r;
+    g = d.g;
+    b = d.b;
+}
 
 /** The chain display leans on the page colours, which only works while the
  *  slots and the first three pages are in the same order. */
@@ -101,10 +126,13 @@ void LedView::DrawPageLed(const PedalState& state)
                             : kParkedFloor
                                   + (1.f - kParkedFloor) * Pulse(kParkedPeriod);
 
+    float r, g, b;
+    PageColour(state, page, r, g, b);
+
     hw_->SetFootSwitchLed(DaisyBoonta::FOOTSWITCH_LED_1,
-                          kPageColour[page].r * level,
-                          kPageColour[page].g * level,
-                          kPageColour[page].b * level);
+                          r * level,
+                          g * level,
+                          b * level);
 }
 
 void LedView::DrawBypassLed(const PedalState& state)
@@ -129,10 +157,12 @@ void LedView::DrawChainLeds(const PedalState& state)
         const float level
             = state.SlotBypassed(slot) ? kBypassedLevel : 1.f;
 
+        const EffectDesc& d = effects::Get(state.GetSlotEffect(slot))->Desc();
+
         hw_->SetSelectLed(static_cast<DaisyBoonta::SelectLed>(position),
-                          kPageColour[slot].r * level,
-                          kPageColour[slot].g * level,
-                          kPageColour[slot].b * level);
+                          d.r * level,
+                          d.g * level,
+                          d.b * level);
     }
 }
 

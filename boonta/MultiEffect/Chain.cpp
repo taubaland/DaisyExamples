@@ -18,9 +18,9 @@ static inline float OutputLevel(float knob)
 
 void Chain::Init(float sample_rate)
 {
-    eq_.Init(sample_rate);
-    drive_.Init(sample_rate);
-    reverb_.Init(sample_rate);
+    // Every registered effect, not only the three currently in slots: swapping
+    // one in must not be the moment it first gets initialised.
+    effects::InitAll(sample_rate);
 }
 
 void Chain::Process(const PedalState&   state,
@@ -119,15 +119,16 @@ void Chain::RunSlot(PedalState::Slot  slot,
                     float*            right,
                     size_t            size)
 {
-    switch(slot)
-    {
-        case PedalState::SLOT_EQ: eq_.Process(state, left, right, size); break;
-        case PedalState::SLOT_DRIVE:
-            drive_.Process(state, left, right, size);
-            break;
-        case PedalState::SLOT_REVERB:
-            reverb_.Process(state, left, right, size);
-            break;
-        default: break;
-    }
+    if(slot >= PedalState::SLOT_LAST)
+        return;
+
+    // The slot says which effect; the effect is handed its six parameters and
+    // its own toggle, and told nothing else. Slot i uses toggle i.
+    Effect* effect = effects::Get(state.GetSlotEffect(slot));
+
+    effect->Process(state.SlotParams(slot),
+                    static_cast<int>(state.GetToggle(slot)),
+                    left,
+                    right,
+                    size);
 }

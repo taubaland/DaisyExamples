@@ -57,8 +57,13 @@ void PedalState::Reset()
         for(int k = 0; k < kKnobCount; k++)
             param_[p][k] = kDefault[p][k];
 
-    for(int i = 0; i < TOGGLE_LAST; i++)
+    for(int i = 0; i < kToggleCount; i++)
         toggle_[i] = POS_MID;
+
+    // Slot i starts holding effect i, which is what makes the default pedal
+    // the EQ / drive / reverb it has always been.
+    for(int i = 0; i < SLOT_LAST; i++)
+        slot_effect_[i] = i;
 
     for(int i = 0; i < SLOT_LAST; i++)
         slot_bypassed_[i] = false; // the master bypass already boots us out

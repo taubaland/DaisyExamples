@@ -160,28 +160,39 @@ void ReverbEffect::Init(float sample_rate)
     unit_            = sample_rate_ / kRefRate;
 }
 
-void ReverbEffect::UpdateCoeffs(const PedalState& state, size_t size)
+const EffectDesc& ReverbEffect::Desc() const
 {
-    const int size_index
-        = static_cast<int>(state.GetToggle(PedalState::TOGGLE_REVERB_SIZE));
+    static const EffectDesc kDesc = {
+        "Reverb",
+        1.0f, 0.0f, 1.0f, // purple
+        "size: room / plate / cavern",
+        {{"time"}, {"damping"}, {"pre-delay"},
+         {"diffusion"}, {"low cut"}, {"mix"}},
+    };
+    return kDesc;
+}
+
+void ReverbEffect::UpdateCoeffs(const float* params, int toggle, size_t size)
+{
+    const int size_index = toggle;
 
     unit_      = (sample_rate_ / kRefRate) * kSizeScale[size_index];
     size_trim_ = kSizeTrim[size_index];
 
     decay_ = kDecayMin
-             + state.Reverb(PedalState::REVERB_TIME) * (kDecayMax - kDecayMin);
+             + params[0] * (kDecayMax - kDecayMin);
 
     damp_coeff_ = PoleCoeff(sample_rate_,
-                            Exponential(state.Reverb(PedalState::REVERB_DAMPING),
+                            Exponential(params[1],
                                         kDampMinHz,
                                         kDampMaxHz));
 
     lowcut_coeff_ = PoleCoeff(sample_rate_,
-                              Exponential(state.Reverb(PedalState::REVERB_LOWCUT),
+                              Exponential(params[4],
                                           kLowCutMinHz,
                                           kLowCutMaxHz));
 
-    predelay_ = state.Reverb(PedalState::REVERB_PREDELAY) * kPredelayMaxMs
+    predelay_ = params[2] * kPredelayMaxMs
                 * sample_rate_ * 0.001f;
     if(predelay_ > 32760.f)
         predelay_ = 32760.f;
@@ -191,13 +202,13 @@ void ReverbEffect::UpdateCoeffs(const PedalState& state, size_t size)
     // Diffusion moves the input diffusers and the tank allpasses together:
     // fully down is a handful of discrete echoes, fully up is Dattorro's own
     // coefficients and a smooth wash.
-    const float d = state.Reverb(PedalState::REVERB_DIFFUSION);
+    const float d = params[3];
     in_diff1_     = 0.25f + 0.50f * d;
     in_diff2_     = 0.20f + 0.425f * d;
     dec_diff1_    = 0.20f + 0.50f * d;
     dec_diff2_    = 0.15f + 0.35f * d;
 
-    mix_ = state.Reverb(PedalState::REVERB_MIX);
+    mix_ = params[5];
 
     // Advance the modulation once per block. A few samples of movement at under
     // 2 Hz does not need sample-rate resolution.
@@ -212,12 +223,13 @@ void ReverbEffect::UpdateCoeffs(const PedalState& state, size_t size)
     mod_r_ = kModDepth * sinf(kTwoPi * lfo_r_phase_);
 }
 
-void ReverbEffect::Process(const PedalState& state,
-                           float*            left,
-                           float*            right,
-                           size_t            size)
+void ReverbEffect::Process(const float* params,
+                           int          toggle,
+                           float*       left,
+                           float*       right,
+                           size_t       size)
 {
-    UpdateCoeffs(state, size);
+    UpdateCoeffs(params, toggle, size);
 
     // Every length and tap, scaled once per block and clamped so no size
     // setting can ask a line for more than it holds.

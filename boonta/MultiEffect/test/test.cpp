@@ -10,6 +10,7 @@
 
 #include "Chain.h"
 #include "PedalState.h"
+#include "EffectRegistry.h"
 #include "MidiMap.h"
 #include "SavedState.h"
 
@@ -142,8 +143,8 @@ static void TestEqBoostAndCut()
     // Low shelf fully up, at its lowest corner so 60 Hz is well inside it.
     PedalState boost;
     Neutral(boost);
-    boost.SetKnob(PedalState::PAGE_EQ, PedalState::EQ_LOW_FREQ, 0.6f);
-    boost.SetKnob(PedalState::PAGE_EQ, PedalState::EQ_LOW_GAIN, 1.0f);
+    boost.SetKnob(PedalState::PAGE_EQ, 0, 0.6f);
+    boost.SetKnob(PedalState::PAGE_EQ, 3, 1.0f);
 
     Chain c2;
     c2.Init(kSr);
@@ -151,8 +152,8 @@ static void TestEqBoostAndCut()
 
     PedalState cut;
     Neutral(cut);
-    cut.SetKnob(PedalState::PAGE_EQ, PedalState::EQ_LOW_FREQ, 0.6f);
-    cut.SetKnob(PedalState::PAGE_EQ, PedalState::EQ_LOW_GAIN, 0.0f);
+    cut.SetKnob(PedalState::PAGE_EQ, 0, 0.6f);
+    cut.SetKnob(PedalState::PAGE_EQ, 3, 0.0f);
 
     Chain c3;
     c3.Init(kSr);
@@ -187,11 +188,11 @@ static void TestDriveBounded()
     PedalState s;
     Neutral(s);
     s.SetKnob(PedalState::PAGE_META, PedalState::META_DRIVE_AMOUNT, 1.0f);
-    s.SetToggle(PedalState::TOGGLE_DRIVE_RANGE, PedalState::POS_HIGH);
-    s.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_GAIN, 1.0f);
-    s.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_TONE, 1.0f);
-    s.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_LEVEL, 0.5f);
-    s.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_MIX, 1.0f);
+    s.SetToggle(PedalState::SLOT_DRIVE, PedalState::POS_HIGH);
+    s.SetKnob(PedalState::PAGE_DRIVE, 0, 1.0f);
+    s.SetKnob(PedalState::PAGE_DRIVE, 1, 1.0f);
+    s.SetKnob(PedalState::PAGE_DRIVE, 4, 0.5f);
+    s.SetKnob(PedalState::PAGE_DRIVE, 5, 1.0f);
 
     // Sweep CHARACTER across all three shapers, checking each stays bounded.
     bool  ok    = true;
@@ -199,7 +200,7 @@ static void TestDriveBounded()
     for(int step = 0; step <= 10; step++)
     {
         PedalState t = s;
-        t.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_CHARACTER, step / 10.f);
+        t.SetKnob(PedalState::PAGE_DRIVE, 2, step / 10.f);
 
         Chain chain;
         chain.Init(kSr);
@@ -221,9 +222,9 @@ static void TestDriveBiasDcBlocked()
     PedalState s;
     Neutral(s);
     s.SetKnob(PedalState::PAGE_META, PedalState::META_DRIVE_AMOUNT, 1.0f);
-    s.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_GAIN, 0.8f);
-    s.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_BIAS, 1.0f); // hard asymmetry
-    s.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_MIX, 1.0f);
+    s.SetKnob(PedalState::PAGE_DRIVE, 0, 0.8f);
+    s.SetKnob(PedalState::PAGE_DRIVE, 3, 1.0f); // hard asymmetry
+    s.SetKnob(PedalState::PAGE_DRIVE, 5, 1.0f);
 
     const size_t kBlock = 48, frames = 48000;
     std::vector<float> il(kBlock), ir(kBlock), ol(kBlock), orr(kBlock);
@@ -266,11 +267,11 @@ static void TestReverbDecaysAndIsStable()
     PedalState s;
     Neutral(s);
     s.SetKnob(PedalState::PAGE_META, PedalState::META_REVERB_AMOUNT, 1.0f);
-    s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_TIME, 1.0f);    // longest
-    s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_DAMPING, 0.0f); // brightest
-    s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_DIFFUSION, 1.0f);
-    s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_MIX, 1.0f);
-    s.SetToggle(PedalState::TOGGLE_REVERB_SIZE, PedalState::POS_HIGH); // biggest tank
+    s.SetKnob(PedalState::PAGE_REVERB, 0, 1.0f);    // longest
+    s.SetKnob(PedalState::PAGE_REVERB, 1, 0.0f); // brightest
+    s.SetKnob(PedalState::PAGE_REVERB, 3, 1.0f);
+    s.SetKnob(PedalState::PAGE_REVERB, 5, 1.0f);
+    s.SetToggle(PedalState::SLOT_REVERB, PedalState::POS_HIGH); // biggest tank
 
     Chain chain;
     chain.Init(kSr);
@@ -304,10 +305,10 @@ static void TestReverbSizesStable()
         PedalState s;
         Neutral(s);
         s.SetKnob(PedalState::PAGE_META, PedalState::META_REVERB_AMOUNT, 1.0f);
-        s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_TIME, 1.0f);
-        s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_MIX, 1.0f);
-        s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_PREDELAY, 1.0f);
-        s.SetToggle(PedalState::TOGGLE_REVERB_SIZE, (PedalState::TogglePos)pos);
+        s.SetKnob(PedalState::PAGE_REVERB, 0, 1.0f);
+        s.SetKnob(PedalState::PAGE_REVERB, 5, 1.0f);
+        s.SetKnob(PedalState::PAGE_REVERB, 2, 1.0f);
+        s.SetToggle(PedalState::SLOT_REVERB, (PedalState::TogglePos)pos);
 
         Chain chain;
         chain.Init(kSr);
@@ -334,9 +335,9 @@ static void TestChainOrderMatters()
     PedalState a;
     Neutral(a);
     a.SetKnob(PedalState::PAGE_META, PedalState::META_DRIVE_AMOUNT, 1.0f);
-    a.SetKnob(PedalState::PAGE_EQ, PedalState::EQ_LOW_GAIN, 1.0f);
-    a.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_GAIN, 0.9f);
-    a.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_MIX, 1.0f);
+    a.SetKnob(PedalState::PAGE_EQ, 3, 1.0f);
+    a.SetKnob(PedalState::PAGE_DRIVE, 0, 0.9f);
+    a.SetKnob(PedalState::PAGE_DRIVE, 5, 1.0f);
 
     PedalState b = a;
     // Order 0 is EQ -> Drive -> Reverb; order 2 is Drive -> EQ -> Reverb.
@@ -396,7 +397,7 @@ static void TestSlotAmountBypassesSlot()
     // Reverb at zero amount must be inaudible, whatever its own mix says.
     PedalState s;
     Neutral(s);
-    s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_MIX, 1.0f);
+    s.SetKnob(PedalState::PAGE_REVERB, 5, 1.0f);
     s.SetKnob(PedalState::PAGE_META, PedalState::META_REVERB_AMOUNT, 0.0f);
 
     Chain chain;
@@ -417,8 +418,8 @@ static void TestSlotBypassIsTransparentAndRestores()
     PedalState on;
     Neutral(on);
     on.SetKnob(PedalState::PAGE_META, PedalState::META_DRIVE_AMOUNT, 1.0f);
-    on.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_GAIN, 0.9f);
-    on.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_MIX, 1.0f);
+    on.SetKnob(PedalState::PAGE_DRIVE, 0, 0.9f);
+    on.SetKnob(PedalState::PAGE_DRIVE, 5, 1.0f);
 
     PedalState off = on;
     off.SetSlotBypass(PedalState::SLOT_DRIVE, true);
@@ -479,6 +480,103 @@ static void TestMetaKnobOrder()
               && s.Meta(PedalState::META_MIX) == 0.66f,
           "meta knobs 1-6 map to eq/reverb/in/drive/out/mix",
           detail);
+}
+
+static void TestEffectRegistry()
+{
+    Check(effects::Count() == effects::ID_LAST && effects::Count() >= 3,
+          "the registry reports every effect it holds");
+
+    bool distinct = true;
+    for(int i = 0; i < effects::Count(); i++)
+        for(int j = i + 1; j < effects::Count(); j++)
+            if(effects::Get(i) == effects::Get(j))
+                distinct = false;
+    Check(distinct, "every id resolves to a different effect instance");
+
+    bool described = true;
+    for(int i = 0; i < effects::Count(); i++)
+    {
+        const EffectDesc& d = effects::Get(i)->Desc();
+        if(!d.name || !d.toggle)
+            described = false;
+        for(int p = 0; p < Effect::kParamCount; p++)
+            if(!d.param[p].name)
+                described = false;
+        // A colour of all zeros is an unlit LED, which reads as a dead pedal.
+        if(d.r <= 0.f && d.g <= 0.f && d.b <= 0.f)
+            described = false;
+    }
+    Check(described,
+          "every effect names itself, its toggle and all six parameters, and "
+          "has a visible colour");
+
+    // An id from a newer firmware must not leave a hole in the audio path.
+    Check(effects::Get(999) != nullptr && effects::Get(-1) != nullptr,
+          "an unknown effect id still resolves to something that can process");
+    Check(!effects::Known(999) && !effects::Known(-1),
+          "but is not reported as known");
+}
+
+static void TestSlotsAreInterchangeable()
+{
+    // The point of the refactor: put a different effect in a slot and the audio
+    // changes, without anything else in the model moving.
+    PedalState a;
+    Neutral(a);
+    a.SetKnob(PedalState::PAGE_META, PedalState::META_EQ_AMOUNT, 1.0f);
+    a.SetSlotEffect(PedalState::SLOT_EQ, effects::ID_EQ);
+    a.SetKnob(PedalState::PAGE_EQ, 0, 0.6f);
+    a.SetKnob(PedalState::PAGE_EQ, 3, 1.0f); // low shelf hard boost
+
+    PedalState b = a;
+    b.SetSlotEffect(PedalState::SLOT_EQ, effects::ID_DRIVE);
+
+    Chain c1;
+    c1.Init(kSr);
+    auto ra = Run(c1, a, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 60.f); });
+
+    Chain c2;
+    c2.Init(kSr);
+    auto rb = Run(c2, b, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 60.f); });
+
+    char detail[160];
+    snprintf(detail, sizeof detail, "(EQ in slot 1: %.4f, drive in slot 1: %.4f)",
+             ra.rms, rb.rms);
+    Check(ra.finite && rb.finite && std::fabs(Db(ra.rms / rb.rms)) > 3.f,
+          "swapping the effect in a slot changes what that slot does",
+          detail);
+
+    // And the six knobs go to whatever is loaded, unchanged.
+    Check(a.GetKnob(PedalState::PAGE_EQ, 3) == b.GetKnob(PedalState::PAGE_EQ, 3),
+          "the slot's parameters are untouched by the swap");
+}
+
+static void TestSlotEffectSurvivesSaving()
+{
+    // Without the effect id in the preset, six numbers would be restored into
+    // whichever effect happened to be loaded - a reverb decay set from a
+    // drive's bias.
+    PedalState before;
+    Neutral(before);
+    before.SetSlotEffect(PedalState::SLOT_EQ, effects::ID_REVERB);
+    before.SetSlotEffect(PedalState::SLOT_DRIVE, effects::ID_EQ);
+    before.SetSlotEffect(PedalState::SLOT_REVERB, effects::ID_DRIVE);
+
+    const SavedState saved = CaptureState(before);
+
+    PedalState after;
+    after.Reset();
+    Check(ApplyState(saved, &after), "a preset with swapped slots applies");
+    Check(after.GetSlotEffect(PedalState::SLOT_EQ) == effects::ID_REVERB
+              && after.GetSlotEffect(PedalState::SLOT_DRIVE) == effects::ID_EQ
+              && after.GetSlotEffect(PedalState::SLOT_REVERB) == effects::ID_DRIVE,
+          "and brings every slot's effect back with it");
+
+    PedalState other;
+    Neutral(other);
+    Check(CaptureState(other) != saved,
+          "a preset differing only in which effects are loaded compares different");
 }
 
 static void TestSavedStateRoundTrip()
@@ -761,9 +859,9 @@ static void TestBypassIsClean()
     Neutral(s);
     s.SetBypass(true);
     // Everything cranked; bypass must still pass through untouched.
-    s.SetKnob(PedalState::PAGE_EQ, PedalState::EQ_LOW_GAIN, 1.0f);
+    s.SetKnob(PedalState::PAGE_EQ, 3, 1.0f);
     s.SetKnob(PedalState::PAGE_META, PedalState::META_DRIVE_AMOUNT, 1.0f);
-    s.SetKnob(PedalState::PAGE_DRIVE, PedalState::DRIVE_GAIN, 1.0f);
+    s.SetKnob(PedalState::PAGE_DRIVE, 0, 1.0f);
 
     Chain chain;
     chain.Init(kSr);
@@ -831,6 +929,9 @@ int main()
     TestSlotBypassIsTransparentAndRestores();
     TestMetaKnobOrder();
     TestPageSlotMapping();
+    TestEffectRegistry();
+    TestSlotsAreInterchangeable();
+    TestSlotEffectSurvivesSaving();
     TestSavedStateRoundTrip();
     TestSavedStateRejectsGarbage();
     TestSavedStateDetectsChange();

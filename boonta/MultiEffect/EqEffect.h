@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 #include "Biquad.h"
-#include "PedalState.h"
+#include "Effect.h"
 
 /** Three band semi-parametric EQ: sweepable low shelf, peaking mid, high shelf.
  *
@@ -18,18 +18,21 @@
  *  paying for them on every block while nobody is touching the pedal would be
  *  the largest single cost in this effect.
  */
-class EqEffect
+class EqEffect : public Effect
 {
   public:
     EqEffect() : sample_rate_(48000.f), coeffs_valid_(false) {}
 
-    void Init(float sample_rate);
+    void Init(float sample_rate) override;
 
-    void Process(const PedalState& state, float* left, float* right, size_t size);
+    void Process(const float* params, int toggle,
+                 float* left, float* right, size_t size) override;
+
+    const EffectDesc& Desc() const override;
 
   private:
     /** Redesign the three sections if, and only if, something changed. */
-    void UpdateCoeffs(const PedalState& state);
+    void UpdateCoeffs(const float* params, int toggle);
 
     float sample_rate_;
 
@@ -37,7 +40,7 @@ class EqEffect
     BiquadState  low_z_[2], mid_z_[2], high_z_[2];
 
     // Cache of the settings the current coefficients were designed from.
-    float coeffs_from_[PedalState::kKnobCount];
+    float coeffs_from_[Effect::kParamCount];
     int   coeffs_from_q_ = 0;
     bool  coeffs_valid_;
 };

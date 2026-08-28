@@ -39,36 +39,6 @@ class PedalState
     /** Knobs named by what they mean, not where they are. Every enum below
      *  indexes the same six physical knobs; which set is live depends on the
      *  page. The DSP asks for EQ_LOW_GAIN and never learns it was KNOB_4. */
-    enum EqParam
-    {
-        EQ_LOW_FREQ,  /**< 40 Hz - 500 Hz  */
-        EQ_MID_FREQ,  /**< 200 Hz - 4 kHz  */
-        EQ_HIGH_FREQ, /**< 1.5 kHz - 12 kHz */
-        EQ_LOW_GAIN,  /**< low shelf, +/-15 dB, centre detent is flat  */
-        EQ_MID_GAIN,  /**< peaking band                                */
-        EQ_HIGH_GAIN, /**< high shelf                                  */
-    };
-
-    enum DriveParam
-    {
-        DRIVE_GAIN,      /**< pre-shaper gain, scaled by the RANGE toggle */
-        DRIVE_TONE,      /**< post lowpass, 250 Hz - 8 kHz                */
-        DRIVE_CHARACTER, /**< soft clip -> hard clip -> wavefold          */
-        DRIVE_BIAS,      /**< shaper asymmetry, centre is symmetric       */
-        DRIVE_LEVEL,     /**< make-up gain, unity at centre               */
-        DRIVE_MIX,       /**< dry/wet within the drive block              */
-    };
-
-    enum ReverbParam
-    {
-        REVERB_TIME,      /**< tank decay          */
-        REVERB_DAMPING,   /**< HF loss per pass    */
-        REVERB_PREDELAY,  /**< 0 - 250 ms          */
-        REVERB_DIFFUSION, /**< allpass density     */
-        REVERB_LOWCUT,    /**< input HPF, 20 Hz - 500 Hz */
-        REVERB_MIX,       /**< dry/wet within the reverb block */
-    };
-
     enum MetaParam
     {
         META_EQ_AMOUNT,     /**< KNOB_1: per-slot dry/wet                    */
@@ -92,16 +62,14 @@ class PedalState
     /** Three effects permute six ways, cycled by the select buttons. */
     static constexpr int kOrderCount = 6;
 
-    /** Three-way toggle meanings. Unlike the knobs these are global: a toggle
-     *  reads the same whichever page is on screen, because a physical switch
-     *  that changed meaning under your hand would be a liability live. */
-    enum Toggle
-    {
-        TOGGLE_DRIVE_RANGE, /**< TOG_SW_1: gain range, low / mid / high  */
-        TOGGLE_REVERB_SIZE, /**< TOG_SW_2: room / hall / cavern          */
-        TOGGLE_EQ_Q,        /**< TOG_SW_3: band width, wide / med / tight */
-        TOGGLE_LAST,
-    };
+    /** One toggle per slot: TOG_SW_1 belongs to slot 1, and so on. What it
+     *  selects depends on the effect sitting there, which is the only sane
+     *  arrangement once slots are interchangeable -- the alternative is a switch
+     *  whose meaning depends on a chain order you cannot see.
+     *
+     *  Global rather than per page: a switch that changed meaning depending on
+     *  what was on screen would be a liability on a dark stage. */
+    static constexpr int kToggleCount = 3;
 
     /** Toggle position, decoupled from Switch3::POS_* so the model stays
      *  hardware agnostic. */
@@ -119,7 +87,7 @@ class PedalState
     // --- written by the Controller -------------------------------------
     void SetKnob(Page page, int knob, float value) { param_[page][knob] = value; }
     void SetExpression(float value) { expression_ = value; }
-    void SetToggle(Toggle t, TogglePos pos) { toggle_[t] = pos; }
+    void SetToggle(int index, TogglePos pos) { toggle_[index] = pos; }
     void SetBypass(bool bypassed) { bypassed_ = bypassed; }
     void ToggleBypass() { bypassed_ = !bypassed_; }
     void SetSlotBypass(Slot s, bool bypassed) { slot_bypassed_[s] = bypassed; }
@@ -144,10 +112,16 @@ class PedalState
     // --- read by the View and the DSP ----------------------------------
     float GetKnob(Page page, int knob) const { return param_[page][knob]; }
 
-    float Eq(EqParam p) const { return param_[PAGE_EQ][p]; }
-    float Drive(DriveParam p) const { return param_[PAGE_DRIVE][p]; }
-    float Reverb(ReverbParam p) const { return param_[PAGE_REVERB][p]; }
     float Meta(MetaParam p) const { return param_[PAGE_META][p]; }
+
+    /** The six parameters of a slot, as the effect there wants them: a bare
+     *  pointer to six floats, because the effect no longer knows what a page
+     *  is. Slot i edits page i -- that is the whole of the correspondence. */
+    const float* SlotParams(Slot s) const { return param_[s]; }
+
+    /** Which effect is in a slot, by registry id. */
+    int  GetSlotEffect(Slot s) const { return slot_effect_[s]; }
+    void SetSlotEffect(Slot s, int id) { slot_effect_[s] = id; }
 
     /** Per-slot dry/wet from the meta page, by slot rather than by knob, so the
      *  chain can loop over slots without a switch. The three amount knobs are
@@ -176,7 +150,8 @@ class PedalState
     /** Which effect sits at the given position in the chain, 0 = first. */
     Slot      SlotAt(int position) const;
     float     GetExpression() const { return expression_; }
-    TogglePos GetToggle(Toggle t) const { return toggle_[t]; }
+    /** A slot's toggle. Slot i is handed toggle i. */
+    TogglePos GetToggle(int index) const { return toggle_[index]; }
     bool      IsBypassed() const { return bypassed_; }
     bool      IsActive() const { return !bypassed_; }
     uint32_t  PickupPending() const { return pickup_pending_; }
@@ -192,11 +167,12 @@ class PedalState
   private:
     float     param_[PAGE_LAST][kKnobCount];
     float     expression_;
-    TogglePos toggle_[TOGGLE_LAST];
+    TogglePos toggle_[kToggleCount];
     Page      page_;
     int       order_;
     bool      bypassed_;
     bool      slot_bypassed_[SLOT_LAST];
+    int       slot_effect_[SLOT_LAST];
     bool      page_edited_;
     uint32_t  pickup_pending_;
 };

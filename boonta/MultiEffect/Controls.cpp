@@ -4,14 +4,9 @@
 
 using namespace daisy;
 
-/** Physical toggle -> toggle meaning. The three toggles are global rather than
- *  per page: a switch that changed meaning depending on what was on screen
- *  would be a liability on a dark stage. */
-static constexpr PedalState::Toggle kToggleMap[DaisyBoonta::TOG_SW_LAST] = {
-    PedalState::TOGGLE_DRIVE_RANGE, // TOG_SW_1
-    PedalState::TOGGLE_REVERB_SIZE, // TOG_SW_2
-    PedalState::TOGGLE_EQ_Q,        // TOG_SW_3
-};
+/** Toggle i belongs to slot i, and what it selects is whatever the effect in
+ *  that slot says it selects. No table: the mapping is the identity, which is
+ *  the only arrangement that survives the effects being interchangeable. */
 
 /** How close the pot has to get before a parked knob counts as picked up.
  *  Slack here trades a small jump for an easier catch; one percent of travel is
@@ -168,7 +163,7 @@ void Controls::ReadToggles()
             default: mapped = PedalState::POS_MID; break;
         }
 
-        state_->SetToggle(kToggleMap[i], mapped);
+        state_->SetToggle(static_cast<int>(i), mapped);
     }
 }
 

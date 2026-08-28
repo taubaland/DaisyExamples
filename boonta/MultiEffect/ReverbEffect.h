@@ -4,7 +4,7 @@
 
 #include <stddef.h>
 
-#include "PedalState.h"
+#include "Effect.h"
 
 /** Dattorro plate reverb.
  *
@@ -28,18 +28,21 @@
  *
  *  Processes in place.
  */
-class ReverbEffect
+class ReverbEffect : public Effect
 {
   public:
     ReverbEffect() : sample_rate_(48000.f) {}
 
-    void Init(float sample_rate);
+    void Init(float sample_rate) override;
 
-    void Process(const PedalState& state, float* left, float* right, size_t size);
+    void Process(const float* params, int toggle,
+                 float* left, float* right, size_t size) override;
+
+    const EffectDesc& Desc() const override;
 
   private:
-    /** Resolve the model into delay lengths and coefficients, once per block. */
-    void UpdateCoeffs(const PedalState& state, size_t size);
+    /** Resolve the knobs into delay lengths and coefficients, once per block. */
+    void UpdateCoeffs(const float* params, int toggle, size_t size);
 
     float sample_rate_;
 

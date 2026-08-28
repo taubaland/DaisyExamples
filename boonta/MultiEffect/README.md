@@ -16,6 +16,9 @@ jobs.
 | `EqEffect.h/.cpp` | three band semi-parametric EQ | model, `Biquad.h` |
 | `DriveEffect.h/.cpp` | bias, waveshaper, tone, level | model |
 | `ReverbEffect.h/.cpp` | Dattorro plate | model, DaisySP `DelayLine` |
+| `Effect.h` | what every effect looks like from outside | nothing |
+| `EffectRegistry.h/.cpp` | every effect a slot can hold, by stable id | the effects |
+| `GenEffect.h/.cpp` | adapter for an exported gen~ or RNBO patch | `Effect.h` |
 | `Biquad.h` | RBJ second order sections | nothing |
 | `SavedState.h` | what survives a power cycle, and the conversion either way | model |
 | `MidiMap.h` | which controller does what | model |
@@ -69,14 +72,22 @@ not an effect.
 | Control | Function |
 |---------|----------|
 | KNOB_1-6 | The six parameters of the current page |
-| TOG_SW_1 | Drive range: down = low gain, centre = mid, up = high |
-| TOG_SW_2 | Reverb size: down = room, centre = plate, up = cavern |
-| TOG_SW_3 | EQ band width: down = wide, centre = medium, up = tight |
+| TOG_SW_1/2/3 | Slot 1/2/3's toggle — what it selects is up to the effect loaded there |
 | SW_SEL_1 | Previous chain order |
 | SW_SEL_2 | Next chain order |
 | SW_FS_1 | **Short press:** switch this page's effect in or out. **Hold 300 ms:** next page (EQ → Drive → Reverb → Meta → EQ) |
 | SW_FS_2 | Master bypass — latching, drives the relays |
 | EXP | Read into the model; unassigned by default (`kExpressionPage`) |
+
+With the default effects loaded that is **TOG_SW_1** EQ band width (wide /
+medium / tight), **TOG_SW_2** drive range (low / mid / high gain), **TOG_SW_3**
+reverb size (room / plate / cavern) — slot 1 holds the EQ, slot 2 the drive,
+slot 3 the reverb, and each takes its own slot's toggle.
+
+**This moved.** Before the slots were interchangeable the toggles were assigned
+per effect, which put drive range on TOG_SW_1 and EQ width on TOG_SW_3. Tying a
+toggle to its slot instead is what lets an effect be swapped without the panel
+lying about what the switches do.
 
 Two departures from the Template worth knowing about. The left footswitch is
 pages, not bypass, so **bypass moved to the right footswitch** — which means the
@@ -171,6 +182,69 @@ is refused and the defaults stand, which is the difference between "my settings
 reset" and a pedal booting with garbage in its parameters. `ApplyState` also
 range-checks every value, NaN included, because flash that has never been
 written reads as whatever was left in it.
+
+## Slots and effects
+
+A slot holds *an effect*, not *the* effect. `Chain` asks the registry which one
+is in each slot and hands it six floats, its toggle and a stereo buffer -- an
+effect no longer knows what a page is, which is what stops the EQ having to be
+the EQ.
+
+```cpp
+virtual void Process(const float* params, int toggle,
+                     float* left, float* right, size_t size) = 0;
+```
+
+Each effect also carries a descriptor: a name, an LED colour and six parameter
+names. The colour is where the pedal gets teal, gold and purple, so swapping an
+effect swaps its colour on the page footswitch and in the chain display at once,
+with nothing to keep in step by hand.
+
+Nothing else moved. Pages are still four, `param_[page][knob]` is still the
+storage, chain order still permutes three slots, and soft pickup, MIDI and the
+meta page never learned anything happened. **Slot i edits page i and uses toggle
+i** -- the identity mapping, which is the only arrangement that survives the
+effects being interchangeable: a toggle whose meaning depends on a chain order
+you cannot see would be worse than no toggle.
+
+Registry ids are written into presets, so they are permanent. Append to the end
+of `effects::Id`; never renumber, and never reuse the id of an effect you
+remove, or old presets come back as something else. A preset naming an effect
+this build does not have resolves to a real effect rather than leaving a hole in
+the audio path.
+
+DaisySP ships ten more effects this pedal does not yet use -- chorus, flanger,
+phaser, autowah, tremolo, pitchshifter, decimator, wavefolder, overdrive and
+sample-rate reducer. Each is now a descriptor and a `Process` away.
+
+## gen~ and RNBO
+
+`GenEffect` adapts a Max/MSP `gen~` or RNBO patch exported as C++.
+
+**At build time, not at runtime.** Both are code generators: the artefact is C++
+source you compile in. There is nothing to parse on the pedal and no interpreter
+to parse it with, so adding a patch means exporting it, dropping the sources
+beside `GenEffect.cpp`, adding them to the Makefile and rebuilding. You cannot
+copy a patch onto the device.
+
+What it buys is still real: any patch you can write in gen~ becomes a slot, with
+the knobs, pages, presets, MIDI and soft pickup already attached.
+
+Three things the adapter has to reconcile, all documented in `GenEffect.h`:
+
+- **Six knobs against however many parameters the patch has.** A page is six,
+  because the pedal has six pots, so the adapter declares a six-way subset in
+  `ParamIndex()`. Anything else keeps the value it was exported with.
+- **Ranges.** Values arrive as 0 to 1 because that is what a pot produces;
+  `Scale()` maps each to what the patch expects.
+- **Cost.** Measure before trusting it. Three hand-written effects already take
+  about a third of the audio budget, and generated DSP is not written to be
+  lean. Build with `PROFILE_CPU` and read the load over the ST-Link.
+
+The file compiles to nothing unless `BOONTA_GEN_EFFECT` is defined, so it costs
+nothing until there is a patch to point it at. **It has never been compiled
+against a real export** -- there was no patch to hand -- so treat the API calls
+as written from the documented shape of gen~'s output rather than as verified.
 
 ## MIDI
 
