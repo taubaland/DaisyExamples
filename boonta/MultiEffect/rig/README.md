@@ -54,6 +54,7 @@ make interface
 | `make dsp` | A/B the EQ shelves and the drive, measured at the pedal output |
 | `make response BAND=mid` | measure one EQ band's gain at the note being played (`low`/`mid`/`high`) |
 | `make relays` | sweep all eight relay states, measuring both ends |
+| `make loopcheck` | is something outside the pedal returning its output to its input? **Run this first** for any complaint about the sound |
 | `make persist` | write a distinctive state, reset the MCU, check it comes back — needs no audio source |
 | `make midiprobe` | find which MIDI output actually reaches the pedal |
 | `make midi PORT="name"` | send CCs and program changes, check the model followed — needs no audio source either |
@@ -81,6 +82,7 @@ device is plugged in. Override with environment variables:
 | `dsp.py` | DSP A/B over fixed bands |
 | `response.py` | one EQ band's gain, measured at the stimulus frequency |
 | `relays.py` | eight-state relay sweep |
+| `loopcheck.py` | external feedback loop detection |
 | `persist.py` | saved-settings round trip across a reset |
 | `midi_probe.py` | which MIDI port reaches the pedal, if any |
 | `midi_test.py` | CC and program-change control, checked against the model |
@@ -133,6 +135,41 @@ Note also that a picked-up knob overwrites a remote change on the next audio
 block -- the hand beats the controller, by design -- so `midi_test.py` parks the
 knobs first. Without that the map looks broken when it is working exactly as
 intended.
+
+## The first question to ask about how it sounds
+
+Run `make loopcheck` before investigating any complaint about the sound. An
+interface monitoring its inputs through to its outputs, with the pedal patched
+across both, closes a loop through the pedal — and that one fault imitates three
+DSP bugs at once, convincingly enough that all three were reported together:
+
+- **the pedal never sounds fully wet**, because recirculated dry signal is
+  present at its *input*, and is therefore inside the wet signal where no mix
+  control can reach it;
+- **the drive self-oscillates before it affects anything**, because it does —
+  its gain takes the loop past unity;
+- **the reverb sounds terrible**, because it is inside a feedback loop.
+
+The check switches every effect out, reducing the chain to
+`out = in * trim * level`: pure feedforward, no state, no feedback, and
+mathematically incapable of oscillating. It then sweeps the two gains and
+compares each reading against what those gains predict. A feedforward path must
+track them proportionally; a loop will not. That comparison is what makes it
+work whether or not a source is playing — looking for "loud" would call a loud
+guitar a feedback loop.
+
+The evidence that settled it, with all three effects switched out:
+
+```
+in 0.5, out 0.8  ->   0.0 dBFS
+in 1.0, out 0.2  ->  -7.9 dBFS
+```
+
+Corroborated by switching effects in one at a time: *every* one pinned the output
+at full scale from no input, **including a flat EQ** — which is a bit-exact
+passthrough, since at 0 dB the RBJ numerator and denominator are identical.
+Three unrelated effects failing identically, one of which does nothing at all, is
+the signature of a fault outside them.
 
 ## A third trap: measure where the signal is
 

@@ -26,13 +26,15 @@
 #   make midi       send CCs and check the model moved. PORT="name" to choose
 #                   the port; use `make midiprobe` first if you do not know it
 #   make midiprobe  find which MIDI output actually reaches the pedal
+#   make loopcheck  is the monitoring path feeding the pedal back into itself?
+#                   run this FIRST for any complaint about how it sounds
 
 PY = venv/Scripts/python.exe
 ifeq ($(OS),)
 PY = venv/bin/python
 endif
 
-.PHONY: venv interface listen verify dsp response relays persist midi midiprobe clean
+.PHONY: venv interface listen verify dsp response relays persist midi midiprobe loopcheck clean
 
 BAND ?= mid
 
@@ -69,6 +71,9 @@ midi: $(PY)
 
 midiprobe: $(PY)
 	@$(PY) midi_probe.py
+
+loopcheck: $(PY)
+	@$(PY) loopcheck.py
 
 clean:
 	rm -rf venv __pycache__
