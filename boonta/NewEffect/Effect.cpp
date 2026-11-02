@@ -3,7 +3,15 @@
 // DaisySP is linked and on the include path; its oscillators, filters and
 // helpers (fonepole, SoftClip, TWOPI_F ...) are what most effects are built
 // out of. Drop the include if the effect ends up not needing it.
+//
+// The Arduino build gets DaisySP from inside the DaisyDuino library, at a
+// path of its own, so the include is guarded and this file stays identical
+// in both builds. Keep it that way.
+#ifdef ARDUINO
+#include "DaisyDSP.h"
+#else
 #include "daisysp.h"
+#endif
 
 using namespace daisysp;
 
