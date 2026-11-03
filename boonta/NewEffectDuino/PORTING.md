@@ -331,6 +331,42 @@ times before believing a failure. That last point is the same lesson
 `HANDOVER.md` records: check openocd is alive before trusting a negative
 result.
 
+#### If the pedal looks dead
+
+Check whether it is halted before assuming it crashed. An openocd command that
+halts the target and then errors before its `resume` leaves the core halted
+with `C_HALT` set, and openocd's `shutdown` does not undo that. The pedal goes
+silent, the LEDs freeze, and nothing recovers it except a power cycle or
+another debugger connection -- which looks exactly like a crash and is not one.
+It happened here from a mistyped `echo` in a one-off `-c` chain, and the board
+sat halted for an hour.
+
+The two tell it apart in one connect. Put this in a `.cfg` and pass it with
+`-f`, rather than fighting the quoting in a `-c` chain -- which is how the
+problem got made in the first place:
+
+```tcl
+init
+halt
+echo [format "CFSR %08x" [mrw 0xE000ED28]]
+echo [format "HFSR %08x" [mrw 0xE000ED2C]]
+echo [format "DHCSR %08x" [mrw 0xE000EDF0]]
+resume
+```
+
+A crash leaves `CFSR` or `HFSR` non-zero. A debugger-halted core leaves both at
+zero with the program counter sitting wherever it was last halted -- compare it
+against the last PC the previous openocd run printed, and if they match to the
+stack pointer as well, nothing has executed in between. `resume` is the whole
+fix.
+
+Do not read the halt reason out of `DFSR` (`0xE000ED30`) without clearing it
+first. Its bits are sticky and write-1-to-clear, so they accumulate across
+every session since the last reset; a `DFSR` of `0x0b` says only that a
+breakpoint, a vector catch and a halt have all happened at some point, which
+is why openocd will cheerfully report "halted due to breakpoint" when the
+breakpoint was yesterday's. Write `0x1f` to it, halt again, and read it then.
+
 ### Still only reasoning
 
 `BOOT_NONE` has not been flashed, since doing so would overwrite the bootloader
