@@ -174,24 +174,16 @@ void LedView::DriveRelays(const PedalState& state)
     if(relays_known_ && engage == relays_engaged_)
         return;
 
-    // All three relays follow `engage`. The Template drove the bypass relay
-    // inverted -- energised when the pedal was *out* of circuit -- and that is
-    // backwards for this board.
-    //
-    // Measured with a guitar in the pedal and its output captured, averaged
-    // over interleaved trials so playing dynamics cancel: with input and output
-    // engaged, bypass=1 gives +13.3 dB out for -28.5 dB in, while bypass=0
-    // gives only +4.5 dB. De-energised, the bypass relay *closes* an analog
-    // path straight from input jack to output jack, so the dry signal sums with
-    // the DSP output and partially cancels it. Energising it opens that path
-    // and leaves the Daisy alone in circuit.
-    //
-    // So (1,1,1) is the effect in circuit and (0,0,0) is true bypass, passing
-    // the input to the output through that same analog path with the Daisy
-    // disconnected. This is also exactly what HardwareTest does.
-    hw_->relay_input.Write(engage);
+    // Both relays follow `engage`: K2 puts the input jack on the ADC, K1 puts
+    // the DAC on the output buffers. The guitar measurement this used to cite
+    // reached the right answer -- the other pedals drove K2 inverted and were
+    // the ones that were wrong -- but it could not have shown that, since a dry
+    // guitar reaches the output jack whichever way the relays sit. What does
+    // show it is driving the two paths separately: a tone from the DAC is only
+    // at the output jack with K1 energised, and an external tone only reaches
+    // the ADC, by 20 dB over the floor, with K2 energised.
     hw_->relay_output.Write(engage);
-    hw_->relay_bypass.Write(engage);
+    hw_->relay_input.Write(engage);
 
     relays_engaged_ = engage;
     relays_known_   = true;

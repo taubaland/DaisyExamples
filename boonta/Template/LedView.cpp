@@ -87,9 +87,13 @@ void LedView::DriveRelays(const PedalState& state)
     if(relays_known_ && engage == relays_engaged_)
         return;
 
-    hw_->relay_input.Write(engage);
+    // Both relays follow `engage`: K2 puts the input jack on the ADC, K1 puts
+    // the DAC on the output buffers. This used to drive a third relay that
+    // does not exist, and to drive K2 inverted under the name relay_bypass --
+    // which de-energised it exactly when the pedal was supposed to be in
+    // circuit, disconnecting the input. That is why the input measured dead.
     hw_->relay_output.Write(engage);
-    hw_->relay_bypass.Write(!engage);
+    hw_->relay_input.Write(engage);
 
     relays_engaged_ = engage;
     relays_known_   = true;

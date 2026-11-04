@@ -73,7 +73,6 @@ int main(void)
             fs2_toggled = !fs2_toggled;
             relay_state = !relay_state;
             hw.relay_output.Write(relay_state);
-            hw.relay_bypass.Write(relay_state);
             hw.relay_input.Write(relay_state);
         }
 
