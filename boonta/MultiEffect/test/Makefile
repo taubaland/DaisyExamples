@@ -27,10 +27,12 @@ INCLUDES = -Istubs -I.. -I$(DAISYSP_DIR)/Source
 # The libDaisy-free half of the pedal. Chain pulls in the three effects.
 DSP_SOURCES = \
 ../Chain.cpp \
+../EffectRegistry.cpp \
 ../EqEffect.cpp \
 ../DriveEffect.cpp \
 ../ReverbEffect.cpp \
-../PedalState.cpp
+../PedalState.cpp \
+../Sysex.cpp
 
 BUILD_DIR = build
 

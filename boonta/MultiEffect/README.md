@@ -16,7 +16,17 @@ jobs.
 | `EqEffect.h/.cpp` | three band semi-parametric EQ | model, `Biquad.h` |
 | `DriveEffect.h/.cpp` | bias, waveshaper, tone, level | model |
 | `ReverbEffect.h/.cpp` | Dattorro plate | model, DaisySP `DelayLine` |
+| `Effect.h` | what every effect looks like from outside | nothing |
+| `EffectRegistry.h/.cpp` | every effect a slot can hold, by stable id | the effects |
+| `GenEffect.h/.cpp` | adapter for an exported gen~ or RNBO patch | `Effect.h` |
 | `Biquad.h` | RBJ second order sections | nothing |
+| `SavedState.h` | what survives a power cycle, and the conversion either way | model |
+| `MidiMap.h` | which controller does what | model |
+| `Sysex.h/.cpp` | the pedal describing itself: identity and effect catalogue | `Effect.h` |
+| `MidiControl.h/.cpp` | **Controller, remote** - MIDI in to model | libDaisy, model |
+| `Storage.h/.cpp` | that block in QSPI flash, debounced | libDaisy, model |
+| `UsbDiag.h/.cpp` | USB clock trim, PHY ungate, and a register snapshot for the ST-Link | libDaisy |
+| `sram-load.cfg` | openocd script behind `make sram`: load into SRAM over the ST-Link | openocd, the bootloader |
 | `MultiEffect.cpp` | wiring only | all of the above |
 | `test/` | host-side DSP tests, `make test` | a host compiler |
 | `rig/` | hardware measurement rig, `make -C rig verify` | the pedal, an interface, openocd |
@@ -63,14 +73,22 @@ not an effect.
 | Control | Function |
 |---------|----------|
 | KNOB_1-6 | The six parameters of the current page |
-| TOG_SW_1 | Drive range: down = low gain, centre = mid, up = high |
-| TOG_SW_2 | Reverb size: down = room, centre = plate, up = cavern |
-| TOG_SW_3 | EQ band width: down = wide, centre = medium, up = tight |
+| TOG_SW_1/2/3 | Slot 1/2/3's toggle — what it selects is up to the effect loaded there |
 | SW_SEL_1 | Previous chain order |
 | SW_SEL_2 | Next chain order |
 | SW_FS_1 | **Short press:** switch this page's effect in or out. **Hold 300 ms:** next page (EQ → Drive → Reverb → Meta → EQ) |
 | SW_FS_2 | Master bypass — latching, drives the relays |
 | EXP | Read into the model; unassigned by default (`kExpressionPage`) |
+
+With the default effects loaded that is **TOG_SW_1** EQ band width (wide /
+medium / tight), **TOG_SW_2** drive range (low / mid / high gain), **TOG_SW_3**
+reverb size (room / plate / cavern) — slot 1 holds the EQ, slot 2 the drive,
+slot 3 the reverb, and each takes its own slot's toggle.
+
+**This moved.** Before the slots were interchangeable the toggles were assigned
+per effect, which put drive range on TOG_SW_1 and EQ width on TOG_SW_3. Tying a
+toggle to its slot instead is what lets an effect be swapped without the panel
+lying about what the switches do.
 
 Two departures from the Template worth knowing about. The left footswitch is
 pages, not bypass, so **bypass moved to the right footswitch** — which means the
@@ -101,18 +119,370 @@ is a third case — a pot that stops short of its rail can never reach a stored
 so the end of travel counts as having got there. If your pots fall well short of
 0 or 1, widen `kPickupWindow` in `Controls.cpp`.
 
-The page footswitch LED breathes until you have picked up **one** knob on the
-page, then goes solid — the signal being "you have not grabbed anything here
-yet", which is exactly the state in which turning a knob appears to do nothing.
+The page footswitch LED breathes while **nothing on this page has been changed
+since you arrived at it**, and goes solid the moment something has. That is also
+the state in which turning a knob appears to do nothing, because every knob is
+still parked.
 
-It used to breathe until *all six* were picked up. That reads as reasonable and
-is useless in practice: you rarely sweep all six knobs on a page, so the LED
-pulsed more or less permanently everywhere except the boot page, and a light
-that is always on carries no information.
+Two earlier conditions were tried and are worth knowing about, because both look
+reasonable written down:
 
-The page showing at boot is the exception: `Controls::Init` arms it immediately,
-so at power-on the pots you can see are the truth. Pages you have not visited
-hold the defaults in `PedalState.cpp` until you take them over.
+- *"any knob still parked"* is true on almost every page almost always — you
+  rarely sweep all six — so the LED pulsed permanently and said nothing.
+- *"any knob picked up"* clears the instant a pot happens to sit on its stored
+  value, which can happen on the very first block after arriving, with nothing
+  edited. On the bench that turned out to be common rather than a corner case.
+
+So the test compares each knob against the value it held **on arrival**, not
+against the previous block — an armed knob is rewritten from its pot every
+block, so a frame-to-frame comparison reads as zero however far you turn it.
+
+At boot the knobs are parked, exactly as on any other page arrival, so the pedal
+comes up on its saved settings rather than adopting whatever the pots read. See
+below.
+
+## Saved settings
+
+Every parameter on all four pages, the current page, the chain order, the three
+per-effect bypasses and the master bypass are kept in the Seed's QSPI flash and
+restored at power-on. The pedal comes back up sounding as you left it.
+
+Not saved: the expression reading, which knobs are parked, and whether the page
+has been edited — all rebuilt at boot from the hardware. Nor the toggles, which
+cannot usefully be saved: they are physical three-position switches, so their
+position at power-on *is* the truth.
+
+**This changes what the knobs do at boot.** The pots no longer win at power-on;
+the saved values do, and a knob takes over when you sweep it through its stored
+value, exactly as when changing page. Without that, restoring settings would be
+pointless — the visible page would be overwritten from the pots on the first
+audio block.
+
+Knowing *when* to write is the whole problem. A knob being turned changes the
+model on every audio block, and each save is a flash erase plus a write: slow,
+blocking, and finite at roughly 100k erase cycles. So the save is debounced —
+nothing is written until the pedal has been left alone for two seconds. A full
+knob sweep costs one erase, not a thousand. It runs from the main loop, never
+the audio callback.
+
+Two details that are easy to get wrong, and both were:
+
+- **The comparison needs a tolerance, not equality.** A picked-up knob is
+  rewritten from its pot every block and the smoothed ADC value wanders in the
+  last few decimals forever. Compared exactly, a pedal sitting untouched looks
+  like it is being changed a thousand times a second: the settle timer never
+  expires, so nothing is ever saved. `SavedState::kEpsilon` is two parts in a
+  thousand — far above that noise, far below anything audible.
+- **"Differs from what is saved" and "has stopped moving" are different
+  questions.** The first is asked against the last block written, the second
+  against the last block seen. Conflating them reproduces the bug above even
+  with a tolerance in place.
+
+`SavedState::kVersion` guards the layout: a block written by a different version
+is refused and the defaults stand, which is the difference between "my settings
+reset" and a pedal booting with garbage in its parameters. `ApplyState` also
+range-checks every value, NaN included, because flash that has never been
+written reads as whatever was left in it.
+
+## Slots and effects
+
+A slot holds *an effect*, not *the* effect. `Chain` asks the registry which one
+is in each slot and hands it six floats, its toggle and a stereo buffer -- an
+effect no longer knows what a page is, which is what stops the EQ having to be
+the EQ.
+
+```cpp
+virtual void Process(const float* params, int toggle,
+                     float* left, float* right, size_t size) = 0;
+```
+
+Each effect also carries a descriptor: a name, an LED colour and six parameter
+names. The colour is where the pedal gets teal, gold and purple, so swapping an
+effect swaps its colour on the page footswitch and in the chain display at once,
+with nothing to keep in step by hand.
+
+Nothing else moved. Pages are still four, `param_[page][knob]` is still the
+storage, chain order still permutes three slots, and soft pickup, MIDI and the
+meta page never learned anything happened. **Slot i edits page i and uses toggle
+i** -- the identity mapping, which is the only arrangement that survives the
+effects being interchangeable: a toggle whose meaning depends on a chain order
+you cannot see would be worse than no toggle.
+
+Registry ids are written into presets, so they are permanent. Append to the end
+of `effects::Id`; never renumber, and never reuse the id of an effect you
+remove, or old presets come back as something else. A preset naming an effect
+this build does not have resolves to a real effect rather than leaving a hole in
+the audio path.
+
+DaisySP ships ten more effects this pedal does not yet use -- chorus, flanger,
+phaser, autowah, tremolo, pitchshifter, decimator, wavefolder, overdrive and
+sample-rate reducer. Each is now a descriptor and a `Process` away.
+
+## gen~ and RNBO
+
+`GenEffect` adapts a Max/MSP `gen~` or RNBO patch exported as C++.
+
+**At build time, not at runtime.** Both are code generators: the artefact is C++
+source you compile in. There is nothing to parse on the pedal and no interpreter
+to parse it with, so adding a patch means exporting it, dropping the sources
+beside `GenEffect.cpp`, adding them to the Makefile and rebuilding. You cannot
+copy a patch onto the device.
+
+What it buys is still real: any patch you can write in gen~ becomes a slot, with
+the knobs, pages, presets, MIDI and soft pickup already attached.
+
+Three things the adapter has to reconcile, all documented in `GenEffect.h`:
+
+- **Six knobs against however many parameters the patch has.** A page is six,
+  because the pedal has six pots, so the adapter declares a six-way subset in
+  `ParamIndex()`. Anything else keeps the value it was exported with.
+- **Ranges.** Values arrive as 0 to 1 because that is what a pot produces;
+  `Scale()` maps each to what the patch expects.
+- **Cost.** Measure before trusting it. Three hand-written effects already take
+  about a third of the audio budget, and generated DSP is not written to be
+  lean. Build with `PROFILE_CPU` and read the load over the ST-Link.
+
+The file compiles to nothing unless `BOONTA_GEN_EFFECT` is defined, so it costs
+nothing until there is a patch to point it at. **It has never been compiled
+against a real export** -- there was no patch to hand -- so treat the API calls
+as written from the documented shape of gen~'s output rather than as verified.
+
+## MIDI
+
+Every parameter and every switch is addressable, on USB and the DIN/TRS input at
+once - whichever sends a message wins, and it does not matter which one it came
+in on. Omni by default; set `midimap::kChannel` to listen to one channel.
+
+| CC | Controls |
+|----|----------|
+| 20 - 25 | EQ page, knobs 1-6 |
+| 26 - 31 | Drive page, knobs 1-6 |
+| 102 - 107 | Reverb page, knobs 1-6 |
+| 108 - 113 | Meta page, knobs 1-6 |
+| 114 | Master bypass (>=64 in circuit) |
+| 115 - 117 | EQ / drive / reverb switched in (>=64 in) |
+| 118 | Chain order, scaled across the six |
+| 119 | Page select, scaled across the four |
+
+Verified end to end over the TRS input: all four pages of parameters, master
+bypass and the per-effect bypasses both ways, chain order across its range, page
+select, program-change recall of presets 5 and 0, and unmapped controllers
+correctly ignored.
+
+**USB works. Windows was binding the wrong driver to it.** The
+symptom was that the Daisy never appeared as a MIDI device while Device Manager
+showed "Unknown USB Device (Device Descriptor Request Failed)". Every part of
+that reading was wrong, and it cost a long detour into libDaisy's USB stack
+before anyone looked at the host.
+
+What is actually true, read off the running target and Windows' own PnP store:
+
+- `DCFG.DAD` is **42**. The device has been assigned an address, which cannot
+  happen unless it answered `GET_DESCRIPTOR(DEVICE)` first.
+- Windows has the device's strings: `BusReportedDeviceDesc` reads
+  **"Daisy Seed Built In"**, which is libDaisy's `USBD_PRODUCT_STRING_FS`.
+- Its compatible IDs include `USB\Class_01&SubClass_01&Prot_00` -- USB Audio,
+  Audio Control -- so the MIDI descriptor set is being emitted and read.
+- The failing "Device Descriptor Request Failed" node is **a different device**:
+  `VID_0000&PID_0002` on `Port_#0012.Hub_#0005`, while the Daisy sits on
+  `Port_#0014.Hub_#0004`. Unrelated, and it was never the Daisy.
+
+The device's status is `CM_PROB_FAILED_START` (Code 10) with `Service = usbser`
+and `DriverDesc = "crow: telephone line"`. The cause is a driver package in the
+store:
+
+```
+Published Name:  oem96.inf
+Original Name:   crow_telephone_line.inf
+Provider Name:   libwdi
+Class Name:      Ports
+Signer Name:     USB\VID_0483&PID_5740 (libwdi autogenerated)
+Attributes:      Legacy
+```
+
+A Zadig/libwdi-generated driver, installed for a Monome Crow, which hard-binds
+`USB\VID_0483&PID_5740` -- and that is exactly the VID/PID libDaisy ships
+(`USBD_VID 1155`, `USBD_PID_FS 22336`, the generic STMicro CDC pair half the
+STM32 world uses). A hardware-ID match outranks the device's own compatible IDs,
+so Windows loads `usbser` on a device that is not a serial port, and `usbser`
+cannot start. The MIDI function never gets as far as `usbaudio.sys`.
+
+The DFU observation that seemed to exonerate the host was the clue all along:
+the bootloader has a libwdi package of its own (`daisy_bootloader.inf`, same
+board serial `3975395A3333`). Both ends of this board had been Zadig'd.
+
+**Fixed by changing the PID.** `USBD_PID_FS` in libDaisy's `usbd_desc.c` is now
+`55829` (`0xDA15`), and `USBD_PID_HS` is `55830` (`0xDA16`) -- they had shared
+`22336` despite carrying different product strings. Nothing depends on `0x5740`
+for MIDI, and moving off it sidesteps every host with a stale CDC binding cached
+for that pair, which given how many projects ship it is the right default rather
+than a workaround.
+
+Note that changing a header in libDaisy is not enough on its own: the descriptor
+lives in `libdaisy.a`, and the app's link step does not depend on the archive, so
+the app happily relinks the old PID. Rebuild libDaisy *and* clean-build the app.
+
+Verified on the bench after reflashing:
+
+```
+USB\VID_0483&PID_DA15\3975395A3333
+  Status  OK          (was Error / CM_PROB_FAILED_START)
+  Class   MEDIA       (was Ports)
+  Service usbaudio    (was usbser)
+
+winmm MIDI output ports:  [4] Daisy Seed Built In
+winmm MIDI input  ports:  [3] Daisy Seed Built In
+```
+
+And end to end, sending `CC 118 = 117` to that port from the host:
+
+```
+MidiControl::ReceivedUsb()   0 -> 1
+MidiControl::ReceivedUart()  0 -> 0     (it really did arrive over USB)
+MidiControl::Accepted()      0 -> 1
+state.order_                 0 -> 5     Reverb -> Drive -> EQ, as asked
+```
+
+The host-side alternative -- `pnputil /delete-driver oem96.inf /uninstall /force`
+as administrator, then replug -- also works, but it takes the driver away from
+the Crow, and it fixes one machine rather than the firmware.
+
+Windows exposes a MIDI **input** port as well as an output, so the descriptor
+already declares both directions. A SysEx dump would be purely a `MidiControl`
+change; there is no descriptor work waiting behind it.
+
+### What was ruled out on the way
+
+Both candidates below were investigated with the board on the bench. Neither is
+the cause; the notes stay because one is a live libDaisy bug and the other is a
+measurement worth not repeating.
+
+**HSI48 accuracy: eliminated.** libDaisy points the USB clock at HSI48 and never
+enables the Clock Recovery System -- `HAL_RCCEx_CRSConfig` appears nowhere in
+the tree -- while per **AN2606** the ROM DFU bootloader does enable CRS. That
+made a free-running oscillator the leading suspect. `usbdiag::EnableCrs()` sets
+it up properly (`SYNCSRC` = USB2 -- on the H750 the core libDaisy calls
+`USB_OTG_FS` is *USB2* at `0x40080000`; syncing to USB1 compiles and never
+locks). Measured: `CRS_ISR.SYNCOKF` sets, so sync is genuinely arriving, and
+`CRS_CR.TRIM` never moves off its default 32 with `AUTOTRIMEN` set. With the bus
+live, `CRS_ISR.FECAP` reads **9** -- nine cycles in 48000, or 0.019%, against a
+USB budget of 0.25% and a `FELIM` of 34. **HSI48 was inside spec by an order of
+magnitude.** The oscillator was never the problem, and CRS is now locked to the
+host anyway, which costs nothing and is what ST's own bootloader does.
+
+**PHY clock gating: real, but not this.** `usbd_conf.c`'s suspend callback calls
+`__HAL_PCD_GATE_PHYCLOCK()` unconditionally and nothing ungates it -- upstream
+as [libDaisy#716](https://github.com/electro-smith/libDaisy/issues/716), still
+open, and the gating is not even wanted here since `low_power_enable` is
+`DISABLE`. Confirmed firing on this board: `usbdiag::snapshot.ungated`
+increments by two on every attach. Worth keeping fixed. It does not affect
+enumeration.
+
+**A trap worth writing down.** Halting the core to read USB registers fails any
+enumeration in progress -- the host times out and Windows reports a descriptor
+failure whatever the firmware is doing. Some of the original register-level
+evidence was gathered that way, which is part of why the wrong conclusion held
+for so long. Read while running, or read after the fact.
+
+UART MIDI is unaffected and does everything USB would have.
+
+Every number is in a range the MIDI specification leaves undefined - 20-31 and
+102-119. Notably *not* 32-63: those are the LSBs of controllers 0-31, and
+although most gear ignores them, a controller sending 14-bit CCs would move two
+parameters at once. Anything unmapped is ignored, which is most of the 128 - a
+pedal that lurched every time something sent modulation would be unusable.
+
+[**boonta-multieffect-editor**](https://github.com/taubaland/boonta-multieffect-editor) is a browser front end for all of the
+above: every parameter on screen, the sixteen slots as a librarian with names
+and JSON export, and the DSP ported to an AudioWorklet so a sound can be dialled
+in before it is sent. It sends and cannot receive, for the reason above -- there
+is no MIDI out here.
+
+It lives in its own repository so it can be hosted as a static page. That makes
+one thing this repository's problem: its `js/midi.js` is a transcription of
+`MidiMap.h` and its `js/params.js` of the ranges in the effect sources. **Change
+a controller number or a sweep range here and it has to change there too.**
+Nothing detects the drift -- the editor would simply send the wrong numbers, and
+a pedal with no MIDI out cannot contradict it.
+
+### SysEx: the pedal describing itself
+
+Everything above is a controller number an editor has to know in advance, which
+is fine while the numbers are fixed. The effect *catalogue* is not fixed --
+`ID_RNBO` exists only in builds with a patch compiled in -- so there is no
+static answer for anyone to transcribe. The firmware says instead.
+
+    -> F0 7D 42 01 F7                     what are you?
+    <- F0 7D 42 41 <proto> <effects>
+                   <slots> <knobs> <presets> F7
+
+    -> F0 7D 42 02 F7                     what effects do you have?
+    <- F0 7D 42 42 <id> <r> <g> <b>       one message per effect, in id order
+                   <str name> <str toggle>
+                   <str param0> .. <str param5> F7
+
+`0x7D` is the manufacturer id the MIDI specification reserves for
+non-commercial use; `0x42` narrows it so the pedal ignores other people's
+educational-id traffic. `<str>` is a length byte followed by that many
+characters. Colours are 0-127 rather than floats because every byte between F0
+and F7 must have bit 7 clear -- the invariant the host tests check hardest,
+since a stray high byte reads as a status and the receiver would parse the rest
+of the catalogue as fresh commands.
+
+The reply comes from the **main loop**, not the audio callback, for the same
+reason a program change only *requests* a preset: it is a few hundred bytes per
+effect and the transport sends by blocking. One message per pass, so a growing
+registry lengthens the reply rather than any single pass.
+
+**USB only.** The TRS jack on this pedal is an input; the board file names a
+MIDI out pin but nothing here has confirmed a socket on the end of it, and the
+UART transport polls, so a catalogue would block the main loop for ~100 ms per
+effect at 31250 baud. The editor that wants this is on USB anyway.
+
+One libDaisy default worth changing for this: `MidiUsbTransport::Config::
+tx_retry_count` is 3, which suits the occasional three-byte message and not a
+burst. Tx gives up if the class driver is still busy, so a catalogue loses
+messages from the middle -- an effect silently missing from the editor's list.
+`MidiControl::Init` sets it to 100.
+
+`make -C rig sysex` asks a real pedal and checks the answer is well formed.
+Measured on hardware:
+
+```
+protocol 1, 3 effects, 3 slots, 6 knobs, 16 presets
+id 0  EQ      rgb(  0,127,127)  band width: wide / medium / tight
+id 1  Drive   rgb(127,127,  0)  gain range: low / mid / high
+id 2  Reverb  rgb(127,  0,127)  size: room / plate / cavern
+```
+
+Those are the same teal, gold and purple the select LEDs show, which is the
+point: the editor can colour its pages from the pedal rather than from a
+constant somebody has to remember to change twice.
+
+**A hand on the pedal beats a controller across the room.** Nothing parks the pot
+when a CC arrives, so a remote change to a parameter whose knob is currently
+picked up is overwritten on the next audio block. Leave the knob alone and the
+remote value stands. That falls out of soft pickup rather than being special-
+cased, and it is the right way round.
+
+## Presets
+
+Sixteen, recalled with **program change 0-15** - which is what program change is
+for, rather than spending a controller on it.
+
+There is no separate save gesture. The live settings are written back into
+whichever preset is current, so a preset is a working slot rather than a snapshot
+you have to remember to commit; on a pedal with no screen, a save step you can
+forget is a save step that loses your sound. Recalling another preset saves the
+one you are leaving first, including edits still inside the settle window.
+
+Recalling replaces every parameter at once, so the knobs are re-parked against
+the new values - otherwise a picked-up knob would overwrite what was just
+loaded on the next block.
+
+The whole bank is one block in flash: `PersistentStorage` keeps a single struct
+at a single address, and the flash erases a sector at a time, so writing one
+preset costs exactly what writing all sixteen costs.
 
 ## Chain order
 
@@ -250,32 +620,118 @@ resume a stale tail rather than a decayed one.
 
 ```
 make
-make program-dfu
+make sram
 ```
 
 `make test` runs the host-side checks; see [Tests](#tests).
 
-`make program` needs openocd's script directory, and its default is a Unix path.
-On a Windows toolchain the Makefile's unquoted `-s $(OCD_DIR)` also breaks on the
-space in `Program Files`, so invoke openocd directly instead:
+This project runs from **SRAM under the Daisy bootloader** (`APP_TYPE =
+BOOT_SRAM`). It used to run from internal flash and no longer fits comfortably:
+with MIDI, presets and `UsbDiag` the build reached 91.9% of the 128K, and one
+upstream libDaisy merge cost 380 bytes of the ~8K left. The same build is 24.5%
+of the 480K SRAM.
+
+| `APP_TYPE` | Code lands in | Used |
+|---|---|---|
+| `BOOT_NONE` | internal FLASH, 128K | 120436 B, 91.9% |
+| `BOOT_SRAM` (this project) | SRAM, 480K | 120444 B, 24.5% |
+| `BOOT_QSPI` | QSPI, 7936K | ~120K, 1% |
+
+The reverb tank is another 540828 B, but it lives in SDRAM, which no app type
+touches.
+
+### Three ways to get code onto the board
+
+| target | writes | needs | survives power cycle |
+|---|---|---|---|
+| `make boot` | bootloader → internal flash | ST-Link | yes, it *is* the boot path |
+| `make program-dfu` | app → QSPI at `0x90040000` | the bootloader in DFU | yes |
+| `make sram` | app → SRAM, ~1 s | ST-Link, bootloader, an app already in QSPI | no |
+
+`make boot` is worth knowing about: libDaisy's `program-boot` needs the chip
+*already* in DFU mode, which is a chicken-and-egg problem on a board whose app
+has stopped booting. openocd writes internal flash with no such requirement, so
+the bootloader can always be reinstalled — and so can a `BOOT_NONE` app, if you
+want the pedal back the way it was.
+
+To get the bootloader into DFU when there is no working app to ask, write
+`0xB0074EFA` (`BootInfo::Type::INF_TIMEOUT`) to `boot_info.status` in backup
+SRAM and reset — it then waits in DFU indefinitely instead of timing out after
+2 s:
 
 ```bash
-openocd -s "/c/Program Files/DaisyToolchain/openocd/scripts" -f interface/stlink.cfg -f target/stm32h7x.cfg -c "program ./build/MultiEffect.elf verify reset exit"
+openocd -s "/c/Program Files/DaisyToolchain/openocd/scripts" -f interface/stlink.cfg -f target/stm32h7x.cfg -c "init; halt; mmw 0x580244e0 0x10000000 0; mmw 0x58024800 0x00000100 0; mww 0x38800000 0xB0074EFA; reset run; shutdown"
 ```
 
-Everything fits in the 128K internal flash, so unlike a lot of three-effect
-builds this one needs no bootloader — the reverb tank is large but it lives in
-SDRAM, which no app type touches. Verified:
+(The two `mmw` writes enable the backup SRAM clock and clear the backup-domain
+write protect, which `System::InitBackupSram()` normally does.)
 
-| `APP_TYPE` | Code lands in | Used | SDRAM |
-|---|---|---|---|
-| `BOOT_NONE` (default) | internal FLASH, 128K | 101092 B, 77% | 540828 B |
-| `BOOT_SRAM` | SRAM, 480K | 100840 B, 21% | 540828 B |
-| `BOOT_QSPI` | QSPI, 7936K | 100840 B, 1% | 540828 B |
+### The SRAM loop, and why it is shaped the way it is
 
-That leaves about 27K of flash. If you outgrow it, uncomment `APP_TYPE` in the
-`Makefile` and run `make program-boot` once; `make program` (openocd) and the
-`.vscode` debug configuration go away when you do.
+`make sram` takes about a second, writes no flash, and wears nothing out. Its
+one subtlety is *where* it takes control, and getting that wrong is a long
+debugging session.
+
+A `BOOT_SRAM` image is **not self-contained**. `startup_stm32h750xx.c` skips
+`SystemInit()` when `BOOT_APP` is defined, and `DaisySeed::Init` only configures
+the clocks at all when it can see a bootloader — it reads `boot_info.version`
+out of backup SRAM, and sets `skip_clocks = true` if that says `LT_v6_0`, which
+is what uninitialised memory reads as. Load such an image with no bootloader
+present and the clocks are never configured: HSI48 stays off (`RCC->CR` reads
+`0x0000c025`, HSI only), so the OTG core's soft reset can never complete
+(`GRSTCTL` sticks at `0x80000001` — AHB idle, `CSRST` asserted forever),
+`USB_CoreInit` returns `HAL_ERROR`, and libDaisy's `Error_Handler()` is a bare
+`while(1)` with no output. The symptom is a board that looks like it is running
+and does nothing.
+
+Nor can you let the bootloader run and then force PC/SP yourself. The
+bootloader spends its time in USB interrupts, so a halt usually lands in Handler
+mode; the app's first stack pop then returns from an exception that is still
+active and bus-faults off the top of DTCMRAM (`BFAR = 0x20020014`, `CFSR`
+BusFault escalated to a forced HardFault).
+
+So `sram-load.cfg` lets the bootloader do the entire handover and catches the
+app on its first instruction with a hardware breakpoint. At that point the core
+is in Thread mode, `MSP` is `0x20020000`, `VTOR` is `0x24000000` and the clocks
+are up — all of it set by the bootloader, none of it faked. Then the image is
+overwritten, `PC` put back, and the core resumed. Measured: caught at
+`0x24000a08` in Thread mode, `verify_image` confirms the resident SRAM matches
+the ELF just built and no longer matches the one in QSPI.
+
+Two details that cost time and are easy to miss:
+
+- The ELF entry point has the Thumb bit set — `readelf` reports `0x24000a09`
+  for an entry at `0x24000a08`. Cortex-M refuses an odd `PC` and openocd says
+  only "Error setting register pc", which is easy to read past because the
+  breakpoint has usually left `PC` in the right place anyway.
+- The breakpoint has to be on the **resident** image's entry, not the new one,
+  since it is the old image the bootloader is about to jump into. The script
+  reads it from the reset vector at `0x24000004` and falls back to the new
+  ELF's entry on a cold start.
+
+### QSPI over the ST-Link
+
+Tempting, and openocd nearly supports it: the shipped `target/stm32h7x.cfg`
+declares an `stmqspi` bank at `0x90000000`, enabled with `-c "set QUADSPI 1"`.
+It did not work here. `stmqspi` drives the QUADSPI peripheral registers
+directly, and the running app owns that peripheral too through `Storage` —
+`flash probe` wedged the core hard enough that every reconnect failed
+examination. Reconnecting at `adapter speed 480` recovered it without a power
+cycle, but the pedal lost the chain order stored in its current preset, so
+something got written that should not have been. Doing it properly needs the app
+stopped *and* a QSPI init sequence openocd can run itself, which is what the
+bootloader otherwise provides. `make program-dfu` is the supported path.
+
+The bootloader advertises the QSPI map, which is worth recording:
+
+```
+@Flash /0x90000000/64*4Kg/0x90040000/60*64Kg/0x90400000/60*64Kg
+```
+
+The preset bank is at offset 0 — `PersistentStorage::Init` defaults to
+`address_offset = 0` — so it sits in the first 256K, and the app goes in at
+`0x90040000`. They do not collide, and a `program-dfu` leaves presets intact.
+Confirmed: the stored chain order survived writing the app.
 
 ## Tests
 

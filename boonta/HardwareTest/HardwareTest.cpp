@@ -44,7 +44,7 @@ static bool LedActive(int sw_pos)
 {
     switch(sw_pos)
     {
-        case Switch3::POS_UP:   return FlashOn(kSlowPeriodMs);
+        case Switch3::POS_UP: return FlashOn(kSlowPeriodMs);
         case Switch3::POS_DOWN: return FlashOn(kFastPeriodMs);
         default: return true; // POS_CENTER = solid on
     }
@@ -73,7 +73,6 @@ int main(void)
             fs2_toggled = !fs2_toggled;
             relay_state = !relay_state;
             hw.relay_output.Write(relay_state);
-            hw.relay_bypass.Write(relay_state);
             hw.relay_input.Write(relay_state);
         }
 

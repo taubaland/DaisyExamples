@@ -4,14 +4,17 @@
 
 #include <stddef.h>
 
-#include "DriveEffect.h"
-#include "EqEffect.h"
+#include "EffectRegistry.h"
 #include "PedalState.h"
-#include "ReverbEffect.h"
 
 /** DSP.
  *
- *  Owns the three effects and runs them in whatever order the model says,
+ *  Runs whatever effects the model says are in the three slots, in whatever
+ *  order it says, and does not know what any of them are -- it asks the
+ *  registry. Wrapped in the meta page's input trim, per-slot amounts, output
+ *  level and global dry/wet.
+ *
+ *  Formerly it
  *  wrapped in the performance page's input trim, per-slot amounts, output level
  *  and global dry/wet. It has no idea a knob exists: it asks the model for
  *  Drive(DRIVE_GAIN), so the same chain works when driven by expression, by
@@ -55,10 +58,6 @@ class Chain
                  float*            left,
                  float*            right,
                  size_t            size);
-
-    EqEffect     eq_;
-    DriveEffect  drive_;
-    ReverbEffect reverb_;
 
     // Scratch. dry_ is the chain input, kept for the global mix; slot_ is one
     // effect's input, kept for that slot's amount crossfade.

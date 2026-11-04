@@ -44,10 +44,10 @@ class Effect
     float dc_z_[2]   = {0.f, 0.f};
 
     // Block-rate coefficients, recomputed in Process().
-    float drive_       = 1.f;
-    float tone_coeff_  = 1.f;
-    float level_       = 1.f;
-    float mix_         = 1.f;
+    float drive_      = 1.f;
+    float tone_coeff_ = 1.f;
+    float level_      = 1.f;
+    float mix_        = 1.f;
 };
 
 #endif

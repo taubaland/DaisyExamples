@@ -1,5 +1,7 @@
 #include "LedView.h"
 
+#include "EffectRegistry.h"
+
 using namespace daisy;
 
 /** One colour per page. The first three are also the colours of the three
@@ -23,11 +25,34 @@ static const struct
 {
     float r, g, b;
 } kPageColour[PedalState::PAGE_LAST] = {
-    {0.0f, 1.0f, 1.0f}, // EQ     : teal   (green + blue)
-    {1.0f, 1.0f, 0.0f}, // Drive  : gold   (red + green)
-    {1.0f, 0.0f, 1.0f}, // Reverb : purple (red + blue)
-    {1.0f, 1.0f, 1.0f}, // Meta   : white
+    {1.0f, 1.0f, 1.0f}, // unused: slot pages take their colour from the effect
+    {1.0f, 1.0f, 1.0f},
+    {1.0f, 1.0f, 1.0f},
+    {1.0f, 1.0f, 1.0f}, // Meta : white
 };
+
+/** A page's colour. The three slot pages borrow the colour of whatever effect
+ *  is in them, so swapping an effect swaps its colour everywhere at once; the
+ *  meta page edits the chain rather than an effect, so it keeps its own. */
+static void PageColour(const PedalState& state,
+                       PedalState::Page  page,
+                       float&            r,
+                       float&            g,
+                       float&            b)
+{
+    const PedalState::Slot slot = PedalState::PageSlot(page);
+    if(slot == PedalState::SLOT_LAST)
+    {
+        r = kPageColour[PedalState::PAGE_META].r;
+        g = kPageColour[PedalState::PAGE_META].g;
+        b = kPageColour[PedalState::PAGE_META].b;
+        return;
+    }
+    const EffectDesc& d = effects::Get(state.GetSlotEffect(slot))->Desc();
+    r                   = d.r;
+    g                   = d.g;
+    b                   = d.b;
+}
 
 /** The chain display leans on the page colours, which only works while the
  *  slots and the first three pages are in the same order. */
@@ -86,22 +111,26 @@ void LedView::DrawPageLed(const PedalState& state)
 {
     const PedalState::Page page = state.GetPage();
 
-    // Breathe until you have taken control of something on this page, then go
-    // solid. The signal is "you have not grabbed anything here yet", which is
-    // exactly the state in which turning a knob appears to do nothing.
+    // Breathe until something on this page has actually been changed, then go
+    // solid. The signal is "nothing here has been touched since you arrived",
+    // which is also the state in which turning a knob appears to do nothing,
+    // because every knob is still parked.
     //
-    // The condition used to be "any knob still parked", which is true on almost
-    // every page almost always -- you rarely sweep all six -- so the LED pulsed
-    // more or less permanently and carried no information.
-    const float level = state.PageTouched()
-                            ? 1.f
-                            : kParkedFloor
-                                  + (1.f - kParkedFloor) * Pulse(kParkedPeriod);
+    // Two conditions were tried and discarded. "Any knob still parked" is true
+    // on almost every page almost always -- you rarely sweep all six -- so the
+    // LED pulsed permanently and said nothing. "Any knob picked up" clears the
+    // moment a pot happens to sit on its stored value, which can happen on the
+    // first block after arriving, without anything having been edited.
+    const float level
+        = state.PageEdited()
+              ? 1.f
+              : kParkedFloor + (1.f - kParkedFloor) * Pulse(kParkedPeriod);
 
-    hw_->SetFootSwitchLed(DaisyBoonta::FOOTSWITCH_LED_1,
-                          kPageColour[page].r * level,
-                          kPageColour[page].g * level,
-                          kPageColour[page].b * level);
+    float r, g, b;
+    PageColour(state, page, r, g, b);
+
+    hw_->SetFootSwitchLed(
+        DaisyBoonta::FOOTSWITCH_LED_1, r * level, g * level, b * level);
 }
 
 void LedView::DrawBypassLed(const PedalState& state)
@@ -123,13 +152,14 @@ void LedView::DrawChainLeds(const PedalState& state)
         // Full brightness in circuit, a fifth of it when switched out. Same
         // colour either way, so the order stays readable while the state of
         // each effect is obvious.
-        const float level
-            = state.SlotBypassed(slot) ? kBypassedLevel : 1.f;
+        const float level = state.SlotBypassed(slot) ? kBypassedLevel : 1.f;
+
+        const EffectDesc& d = effects::Get(state.GetSlotEffect(slot))->Desc();
 
         hw_->SetSelectLed(static_cast<DaisyBoonta::SelectLed>(position),
-                          kPageColour[slot].r * level,
-                          kPageColour[slot].g * level,
-                          kPageColour[slot].b * level);
+                          d.r * level,
+                          d.g * level,
+                          d.b * level);
     }
 }
 
@@ -141,24 +171,16 @@ void LedView::DriveRelays(const PedalState& state)
     if(relays_known_ && engage == relays_engaged_)
         return;
 
-    // All three relays follow `engage`. The Template drove the bypass relay
-    // inverted -- energised when the pedal was *out* of circuit -- and that is
-    // backwards for this board.
-    //
-    // Measured with a guitar in the pedal and its output captured, averaged
-    // over interleaved trials so playing dynamics cancel: with input and output
-    // engaged, bypass=1 gives +13.3 dB out for -28.5 dB in, while bypass=0
-    // gives only +4.5 dB. De-energised, the bypass relay *closes* an analog
-    // path straight from input jack to output jack, so the dry signal sums with
-    // the DSP output and partially cancels it. Energising it opens that path
-    // and leaves the Daisy alone in circuit.
-    //
-    // So (1,1,1) is the effect in circuit and (0,0,0) is true bypass, passing
-    // the input to the output through that same analog path with the Daisy
-    // disconnected. This is also exactly what HardwareTest does.
-    hw_->relay_input.Write(engage);
+    // Both relays follow `engage`: K2 puts the input jack on the ADC, K1 puts
+    // the DAC on the output buffers. The guitar measurement this used to cite
+    // reached the right answer -- the other pedals drove K2 inverted and were
+    // the ones that were wrong -- but it could not have shown that, since a dry
+    // guitar reaches the output jack whichever way the relays sit. What does
+    // show it is driving the two paths separately: a tone from the DAC is only
+    // at the output jack with K1 energised, and an external tone only reaches
+    // the ADC, by 20 dB over the floor, with K2 energised.
     hw_->relay_output.Write(engage);
-    hw_->relay_bypass.Write(engage);
+    hw_->relay_input.Write(engage);
 
     relays_engaged_ = engage;
     relays_known_   = true;
