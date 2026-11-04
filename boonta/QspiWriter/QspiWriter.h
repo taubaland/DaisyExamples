@@ -29,11 +29,12 @@ enum Command : uint32_t
 
 enum Status : uint32_t
 {
-    kStatusReady      = 1, // waiting for a command
-    kStatusBusy       = 2, // one in progress
-    kStatusOk         = 3, // the last one succeeded
-    kStatusErrQspi    = 4, // the QSPI driver refused; detail = QSPIHandle::Status
-    kStatusErrVerify  = 5, // readback differed; detail = offset of the first byte
+    kStatusReady   = 1, // waiting for a command
+    kStatusBusy    = 2, // one in progress
+    kStatusOk      = 3, // the last one succeeded
+    kStatusErrQspi = 4, // the QSPI driver refused; detail = QSPIHandle::Status
+    kStatusErrVerify
+    = 5, // readback differed; detail = offset of the first byte
     kStatusErrCommand = 6, // unknown command; detail = the command
     kStatusErrRange   = 7, // address or size out of bounds; detail = the size
 };

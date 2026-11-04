@@ -45,13 +45,14 @@ struct Result
 };
 
 template <typename Gen>
-static Result Run(Chain& chain, const PedalState& s, size_t frames, size_t measure, Gen gen)
+static Result
+Run(Chain& chain, const PedalState& s, size_t frames, size_t measure, Gen gen)
 {
-    const size_t kBlock = 48;
+    const size_t       kBlock = 48;
     std::vector<float> il(kBlock), ir(kBlock), ol(kBlock), orr(kBlock);
 
     Result res{0.f, 0.f, true};
-    double sumsq = 0.0;
+    double sumsq   = 0.0;
     size_t counted = 0;
 
     for(size_t n = 0; n < frames; n += kBlock)
@@ -59,8 +60,8 @@ static Result Run(Chain& chain, const PedalState& s, size_t frames, size_t measu
         for(size_t i = 0; i < kBlock; i++)
         {
             const float v = gen(n + i);
-            il[i] = v;
-            ir[i] = v;
+            il[i]         = v;
+            ir[i]         = v;
         }
 
         const float* in[2]  = {il.data(), ir.data()};
@@ -123,7 +124,8 @@ static void TestUnity()
     Chain chain;
     chain.Init(kSr);
 
-    auto r = Run(chain, s, 24000, 4800, [](size_t n) { return 0.5f * Sine(n, 440.f); });
+    auto r = Run(
+        chain, s, 24000, 4800, [](size_t n) { return 0.5f * Sine(n, 440.f); });
 
     char detail[128];
     snprintf(detail, sizeof detail, "(peak %.4f, expected 0.5)", r.peak);
@@ -140,7 +142,9 @@ static void TestEqBoostAndCut()
     // Reference level through the flat EQ.
     PedalState flat;
     Neutral(flat);
-    auto ref = Run(chain, flat, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 60.f); });
+    auto ref = Run(chain, flat, 24000, 4800, [](size_t n) {
+        return 0.3f * Sine(n, 60.f);
+    });
 
     // Low shelf fully up, at its lowest corner so 60 Hz is well inside it.
     PedalState boost;
@@ -150,7 +154,8 @@ static void TestEqBoostAndCut()
 
     Chain c2;
     c2.Init(kSr);
-    auto up = Run(c2, boost, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 60.f); });
+    auto up = Run(
+        c2, boost, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 60.f); });
 
     PedalState cut;
     Neutral(cut);
@@ -159,27 +164,38 @@ static void TestEqBoostAndCut()
 
     Chain c3;
     c3.Init(kSr);
-    auto down = Run(c3, cut, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 60.f); });
+    auto down = Run(
+        c3, cut, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 60.f); });
 
     const float boost_db = Db(up.peak / ref.peak);
     const float cut_db   = Db(down.peak / ref.peak);
 
     char detail[160];
-    snprintf(detail, sizeof detail, "(boost %+.1f dB, cut %+.1f dB, both should approach +/-15)",
-             boost_db, cut_db);
-    Check(boost_db > 12.f && boost_db < 16.f && cut_db < -12.f && cut_db > -16.f,
+    snprintf(detail,
+             sizeof detail,
+             "(boost %+.1f dB, cut %+.1f dB, both should approach +/-15)",
+             boost_db,
+             cut_db);
+    Check(boost_db > 12.f && boost_db < 16.f && cut_db < -12.f
+              && cut_db > -16.f,
           "low shelf reaches its full +/-15 dB at 60 Hz",
           detail);
 
     // A band that is not being touched should leave a distant tone alone.
     Chain c4;
     c4.Init(kSr);
-    auto ref_hi = Run(c4, flat, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 5000.f); });
+    auto ref_hi = Run(
+        c4, flat, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 5000.f); });
     Chain c5;
     c5.Init(kSr);
-    auto boost_hi = Run(c5, boost, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 5000.f); });
+    auto boost_hi = Run(c5, boost, 24000, 4800, [](size_t n) {
+        return 0.3f * Sine(n, 5000.f);
+    });
 
-    snprintf(detail, sizeof detail, "(%.2f dB at 5 kHz)", Db(boost_hi.peak / ref_hi.peak));
+    snprintf(detail,
+             sizeof detail,
+             "(%.2f dB at 5 kHz)",
+             Db(boost_hi.peak / ref_hi.peak));
     Check(std::fabs(Db(boost_hi.peak / ref_hi.peak)) < 1.0f,
           "low shelf boost leaves 5 kHz alone",
           detail);
@@ -206,7 +222,9 @@ static void TestDriveBounded()
 
         Chain chain;
         chain.Init(kSr);
-        auto r = Run(chain, t, 12000, 4800, [](size_t n) { return 0.9f * Sine(n, 220.f); });
+        auto r = Run(chain, t, 12000, 4800, [](size_t n) {
+            return 0.9f * Sine(n, 220.f);
+        });
 
         if(!r.finite || r.peak > 2.0f)
             ok = false;
@@ -215,8 +233,12 @@ static void TestDriveBounded()
     }
 
     char detail[128];
-    snprintf(detail, sizeof detail, "(worst peak %.3f across the CHARACTER sweep)", worst);
-    Check(ok, "drive stays bounded at full gain through soft/hard/fold", detail);
+    snprintf(detail,
+             sizeof detail,
+             "(worst peak %.3f across the CHARACTER sweep)",
+             worst);
+    Check(
+        ok, "drive stays bounded at full gain through soft/hard/fold", detail);
 }
 
 static void TestDriveBiasDcBlocked()
@@ -228,13 +250,13 @@ static void TestDriveBiasDcBlocked()
     s.SetKnob(PedalState::PAGE_DRIVE, 3, 1.0f); // hard asymmetry
     s.SetKnob(PedalState::PAGE_DRIVE, 5, 1.0f);
 
-    const size_t kBlock = 48, frames = 48000;
+    const size_t       kBlock = 48, frames = 48000;
     std::vector<float> il(kBlock), ir(kBlock), ol(kBlock), orr(kBlock);
 
     Chain chain;
     chain.Init(kSr);
 
-    double sum = 0.0;
+    double sum     = 0.0;
     size_t counted = 0;
 
     for(size_t n = 0; n < frames; n += kBlock)
@@ -259,9 +281,11 @@ static void TestDriveBiasDcBlocked()
     }
 
     const float mean = (float)(sum / counted);
-    char detail[128];
+    char        detail[128];
     snprintf(detail, sizeof detail, "(residual DC %.5f)", mean);
-    Check(std::fabs(mean) < 0.01f, "full BIAS leaves no DC on the output", detail);
+    Check(std::fabs(mean) < 0.01f,
+          "full BIAS leaves no DC on the output",
+          detail);
 }
 
 static void TestReverbDecaysAndIsStable()
@@ -269,7 +293,7 @@ static void TestReverbDecaysAndIsStable()
     PedalState s;
     Neutral(s);
     s.SetKnob(PedalState::PAGE_META, PedalState::META_REVERB_AMOUNT, 1.0f);
-    s.SetKnob(PedalState::PAGE_REVERB, 0, 1.0f);    // longest
+    s.SetKnob(PedalState::PAGE_REVERB, 0, 1.0f); // longest
     s.SetKnob(PedalState::PAGE_REVERB, 1, 0.0f); // brightest
     s.SetKnob(PedalState::PAGE_REVERB, 3, 1.0f);
     s.SetKnob(PedalState::PAGE_REVERB, 5, 1.0f);
@@ -287,9 +311,13 @@ static void TestReverbDecaysAndIsStable()
     auto tail = Run(chain, s, 480000, 4800, [](size_t) { return 0.f; });
 
     char detail[192];
-    snprintf(detail, sizeof detail, "(charged rms %.4f -> after 10 s silence %.6f)",
-             charged.rms, tail.rms);
-    Check(charged.finite && tail.finite && charged.rms > 0.01f && tail.rms < charged.rms * 0.05f,
+    snprintf(detail,
+             sizeof detail,
+             "(charged rms %.4f -> after 10 s silence %.6f)",
+             charged.rms,
+             tail.rms);
+    Check(charged.finite && tail.finite && charged.rms > 0.01f
+              && tail.rms < charged.rms * 0.05f,
           "reverb tank charges, stays finite and decays at max time",
           detail);
 }
@@ -299,8 +327,8 @@ static void TestReverbSizesStable()
     const char* names[3] = {"room", "plate", "cavern"};
     bool        ok       = true;
     char        detail[192];
-    size_t      written  = 0;
-    detail[0]            = 0;
+    size_t      written = 0;
+    detail[0]           = 0;
 
     for(int pos = 0; pos < 3; pos++)
     {
@@ -314,7 +342,9 @@ static void TestReverbSizesStable()
 
         Chain chain;
         chain.Init(kSr);
-        auto r = Run(chain, s, 240000, 4800, [](size_t n) { return 0.7f * Sine(n, 330.f); });
+        auto r = Run(chain, s, 240000, 4800, [](size_t n) {
+            return 0.7f * Sine(n, 330.f);
+        });
 
         if(written < sizeof detail)
             written += snprintf(detail + written,
@@ -327,7 +357,9 @@ static void TestReverbSizesStable()
             ok = false;
     }
 
-    Check(ok, "all three reverb sizes stay finite and bounded under drive", detail);
+    Check(ok,
+          "all three reverb sizes stay finite and bounded under drive",
+          detail);
 }
 
 static void TestChainOrderMatters()
@@ -346,21 +378,29 @@ static void TestChainOrderMatters()
     b.NextOrder();
     b.NextOrder();
 
-    Check(a.SlotAt(0) == PedalState::SLOT_EQ && a.SlotAt(1) == PedalState::SLOT_DRIVE,
+    Check(a.SlotAt(0) == PedalState::SLOT_EQ
+              && a.SlotAt(1) == PedalState::SLOT_DRIVE,
           "order 0 is EQ then Drive");
-    Check(b.SlotAt(0) == PedalState::SLOT_DRIVE && b.SlotAt(1) == PedalState::SLOT_EQ,
+    Check(b.SlotAt(0) == PedalState::SLOT_DRIVE
+              && b.SlotAt(1) == PedalState::SLOT_EQ,
           "order 2 is Drive then EQ");
 
     Chain c1;
     c1.Init(kSr);
-    auto ra = Run(c1, a, 24000, 4800, [](size_t n) { return 0.4f * Sine(n, 80.f); });
+    auto ra = Run(
+        c1, a, 24000, 4800, [](size_t n) { return 0.4f * Sine(n, 80.f); });
 
     Chain c2;
     c2.Init(kSr);
-    auto rb = Run(c2, b, 24000, 4800, [](size_t n) { return 0.4f * Sine(n, 80.f); });
+    auto rb = Run(
+        c2, b, 24000, 4800, [](size_t n) { return 0.4f * Sine(n, 80.f); });
 
     char detail[160];
-    snprintf(detail, sizeof detail, "(EQ->Drive rms %.4f vs Drive->EQ rms %.4f)", ra.rms, rb.rms);
+    snprintf(detail,
+             sizeof detail,
+             "(EQ->Drive rms %.4f vs Drive->EQ rms %.4f)",
+             ra.rms,
+             rb.rms);
     Check(ra.finite && rb.finite && std::fabs(ra.rms - rb.rms) > 0.01f,
           "swapping EQ and Drive in the chain changes the sound",
           detail);
@@ -404,7 +444,8 @@ static void TestSlotAmountBypassesSlot()
 
     Chain chain;
     chain.Init(kSr);
-    auto r = Run(chain, s, 24000, 4800, [](size_t n) { return 0.5f * Sine(n, 440.f); });
+    auto r = Run(
+        chain, s, 24000, 4800, [](size_t n) { return 0.5f * Sine(n, 440.f); });
 
     char detail[128];
     snprintf(detail, sizeof detail, "(peak %.4f, expected 0.5)", r.peak);
@@ -428,17 +469,20 @@ static void TestSlotBypassIsTransparentAndRestores()
 
     Chain c1;
     c1.Init(kSr);
-    auto bypassed
-        = Run(c1, off, 24000, 4800, [](size_t n) { return 0.5f * Sine(n, 440.f); });
+    auto bypassed = Run(
+        c1, off, 24000, 4800, [](size_t n) { return 0.5f * Sine(n, 440.f); });
 
     Chain c2;
     c2.Init(kSr);
-    auto active
-        = Run(c2, on, 24000, 4800, [](size_t n) { return 0.5f * Sine(n, 440.f); });
+    auto active = Run(
+        c2, on, 24000, 4800, [](size_t n) { return 0.5f * Sine(n, 440.f); });
 
     char detail[160];
-    snprintf(detail, sizeof detail, "(bypassed peak %.4f = dry 0.5, active %.4f)",
-             bypassed.peak, active.peak);
+    snprintf(detail,
+             sizeof detail,
+             "(bypassed peak %.4f = dry 0.5, active %.4f)",
+             bypassed.peak,
+             active.peak);
     Check(std::fabs(bypassed.peak - 0.5f) < 0.01f && active.peak > 0.6f,
           "bypassing a slot passes it dry; the amount knob is untouched",
           detail);
@@ -466,7 +510,9 @@ static void TestMetaKnobOrder()
     s.SetKnob(PedalState::PAGE_META, 5, 0.66f); // KNOB_6 global mix
 
     char detail[160];
-    snprintf(detail, sizeof detail, "(eq %.2f drive %.2f reverb %.2f, in %.2f out %.2f mix %.2f)",
+    snprintf(detail,
+             sizeof detail,
+             "(eq %.2f drive %.2f reverb %.2f, in %.2f out %.2f mix %.2f)",
              s.SlotAmount(PedalState::SLOT_EQ),
              s.SlotAmount(PedalState::SLOT_DRIVE),
              s.SlotAmount(PedalState::SLOT_REVERB),
@@ -536,21 +582,27 @@ static void TestSlotsAreInterchangeable()
 
     Chain c1;
     c1.Init(kSr);
-    auto ra = Run(c1, a, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 60.f); });
+    auto ra = Run(
+        c1, a, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 60.f); });
 
     Chain c2;
     c2.Init(kSr);
-    auto rb = Run(c2, b, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 60.f); });
+    auto rb = Run(
+        c2, b, 24000, 4800, [](size_t n) { return 0.3f * Sine(n, 60.f); });
 
     char detail[160];
-    snprintf(detail, sizeof detail, "(EQ in slot 1: %.4f, drive in slot 1: %.4f)",
-             ra.rms, rb.rms);
+    snprintf(detail,
+             sizeof detail,
+             "(EQ in slot 1: %.4f, drive in slot 1: %.4f)",
+             ra.rms,
+             rb.rms);
     Check(ra.finite && rb.finite && std::fabs(Db(ra.rms / rb.rms)) > 3.f,
           "swapping the effect in a slot changes what that slot does",
           detail);
 
     // And the six knobs go to whatever is loaded, unchanged.
-    Check(a.GetKnob(PedalState::PAGE_EQ, 3) == b.GetKnob(PedalState::PAGE_EQ, 3),
+    Check(a.GetKnob(PedalState::PAGE_EQ, 3)
+              == b.GetKnob(PedalState::PAGE_EQ, 3),
           "the slot's parameters are untouched by the swap");
 }
 
@@ -572,13 +624,15 @@ static void TestSlotEffectSurvivesSaving()
     Check(ApplyState(saved, &after), "a preset with swapped slots applies");
     Check(after.GetSlotEffect(PedalState::SLOT_EQ) == effects::ID_REVERB
               && after.GetSlotEffect(PedalState::SLOT_DRIVE) == effects::ID_EQ
-              && after.GetSlotEffect(PedalState::SLOT_REVERB) == effects::ID_DRIVE,
+              && after.GetSlotEffect(PedalState::SLOT_REVERB)
+                     == effects::ID_DRIVE,
           "and brings every slot's effect back with it");
 
     PedalState other;
     Neutral(other);
     Check(CaptureState(other) != saved,
-          "a preset differing only in which effects are loaded compares different");
+          "a preset differing only in which effects are loaded compares "
+          "different");
 }
 
 static void TestSavedStateRoundTrip()
@@ -608,11 +662,11 @@ static void TestSavedStateRoundTrip()
     same = same && after.GetPage() == PedalState::PAGE_REVERB
            && after.GetOrder() == 4
            && after.SlotBypassed(PedalState::SLOT_DRIVE)
-           && !after.SlotBypassed(PedalState::SLOT_EQ)
-           && !after.IsBypassed();
+           && !after.SlotBypassed(PedalState::SLOT_EQ) && !after.IsBypassed();
 
     Check(same, "saved settings survive a capture/apply round trip");
-    Check(CaptureState(after) == saved, "and re-capture to the identical block");
+    Check(CaptureState(after) == saved,
+          "and re-capture to the identical block");
 }
 
 static void TestSavedStateRejectsGarbage()
@@ -625,24 +679,24 @@ static void TestSavedStateRejectsGarbage()
     const SavedState good = CaptureState(reference);
 
     SavedState bad = good;
-    bad.version = 999;
+    bad.version    = 999;
     PedalState s1;
     s1.Reset();
     Check(!ApplyState(bad, &s1), "a block with an unknown version is refused");
 
-    bad = good;
+    bad      = good;
     bad.page = 77;
     Check(!ApplyState(bad, &s1), "an out-of-range page is refused");
 
-    bad = good;
+    bad       = good;
     bad.order = -3;
     Check(!ApplyState(bad, &s1), "an out-of-range chain order is refused");
 
-    bad = good;
+    bad             = good;
     bad.param[0][0] = 4.2f;
     Check(!ApplyState(bad, &s1), "a parameter outside 0..1 is refused");
 
-    bad = good;
+    bad             = good;
     bad.param[1][2] = std::nan("");
     Check(!ApplyState(bad, &s1), "a NaN parameter is refused");
 
@@ -657,7 +711,7 @@ static void TestSavedStateDetectsChange()
     PedalState s;
     s.Reset();
     const SavedState a = CaptureState(s);
-    PedalState reference;
+    PedalState       reference;
     reference.Reset();
 
     Check(!(a != CaptureState(s)), "an unchanged model compares equal");
@@ -678,7 +732,8 @@ static void TestSavedStateDetectsChange()
     PedalState jitter;
     jitter.Reset();
     for(int k = 0; k < PedalState::kKnobCount; k++)
-        jitter.SetKnob(PedalState::PAGE_EQ, k,
+        jitter.SetKnob(PedalState::PAGE_EQ,
+                       k,
                        reference.GetKnob(PedalState::PAGE_EQ, k)
                            + (k % 2 ? 1 : -1) * 0.0004f);
     Check(!(a != CaptureState(jitter)),
@@ -686,7 +741,8 @@ static void TestSavedStateDetectsChange()
 
     PedalState nudged;
     nudged.Reset();
-    nudged.SetKnob(PedalState::PAGE_EQ, 0,
+    nudged.SetKnob(PedalState::PAGE_EQ,
+                   0,
                    reference.GetKnob(PedalState::PAGE_EQ, 0) + 0.01f);
     Check(a != CaptureState(nudged),
           "a real one-percent move still compares as a change");
@@ -698,7 +754,11 @@ static void TestMidiMapDecodes()
 
     bool ok = true;
     // Every page's six knobs, in order.
-    const struct { uint8_t base; int page; } blocks[] = {
+    const struct
+    {
+        uint8_t base;
+        int     page;
+    } blocks[] = {
         {kEqBase, PedalState::PAGE_EQ},
         {kDriveBase, PedalState::PAGE_DRIVE},
         {kReverbBase, PedalState::PAGE_REVERB},
@@ -723,8 +783,10 @@ static void TestMidiMapDecodes()
             ok = false;
     }
     Check(ok, "the three slot bypasses decode to the right slots");
-    Check(Decode(kChainOrder).target == Target::CHAIN_ORDER, "chain order decodes");
-    Check(Decode(kPageSelect).target == Target::PAGE_SELECT, "page select decodes");
+    Check(Decode(kChainOrder).target == Target::CHAIN_ORDER,
+          "chain order decodes");
+    Check(Decode(kPageSelect).target == Target::PAGE_SELECT,
+          "page select decodes");
 }
 
 static void TestMidiMapIgnoresEverythingElse()
@@ -733,7 +795,7 @@ static void TestMidiMapIgnoresEverythingElse()
 
     // A pedal that lurched on every modulation or volume message would be
     // unusable, so anything unmapped must decode to NONE.
-    int mapped = 0;
+    int  mapped         = 0;
     bool reserved_clear = true;
     for(int cc = 0; cc < 128; cc++)
     {
@@ -802,7 +864,7 @@ static void TestPresetBankRoundTrip()
     copy.preset[7].param[0][0] += 0.5f;
     Check(copy != bank, "a change in any one preset makes the bank differ");
 
-    copy = bank;
+    copy         = bank;
     copy.current = 9;
     Check(copy != bank, "changing the current preset makes the bank differ");
 
@@ -810,15 +872,17 @@ static void TestPresetBankRoundTrip()
     PedalState out;
     out.Reset();
     bool ok = ApplyState(bank.preset[5], &out);
-    ok = ok && out.GetOrder() == (5 % PedalState::kOrderCount);
+    ok      = ok && out.GetOrder() == (5 % PedalState::kOrderCount);
     Check(ok, "a preset applies back as the settings it was captured from");
 }
 
 static void TestPageSlotMapping()
 {
     Check(PedalState::PageSlot(PedalState::PAGE_EQ) == PedalState::SLOT_EQ
-              && PedalState::PageSlot(PedalState::PAGE_DRIVE) == PedalState::SLOT_DRIVE
-              && PedalState::PageSlot(PedalState::PAGE_REVERB) == PedalState::SLOT_REVERB,
+              && PedalState::PageSlot(PedalState::PAGE_DRIVE)
+                     == PedalState::SLOT_DRIVE
+              && PedalState::PageSlot(PedalState::PAGE_REVERB)
+                     == PedalState::SLOT_REVERB,
           "each effect page maps to its own slot for the short-press bypass");
     Check(PedalState::PageSlot(PedalState::PAGE_META) == PedalState::SLOT_LAST,
           "the meta page maps to no slot, so a short press there does nothing");
@@ -833,12 +897,14 @@ static void TestGlobalMixAndLevels()
 
     Chain chain;
     chain.Init(kSr);
-    auto r = Run(chain, s, 24000, 4800, [](size_t n) { return 0.5f * Sine(n, 440.f); });
+    auto r = Run(
+        chain, s, 24000, 4800, [](size_t n) { return 0.5f * Sine(n, 440.f); });
 
     char detail[128];
     snprintf(detail, sizeof detail, "(peak %.4f, expected 0.5 dry)", r.peak);
     Check(std::fabs(r.peak - 0.5f) < 0.01f,
-          "global mix fully dry passes the input untouched even at zero output level",
+          "global mix fully dry passes the input untouched even at zero output "
+          "level",
           detail);
 
     // Output level at centre is unity, at the top is +12 dB.
@@ -847,7 +913,8 @@ static void TestGlobalMixAndLevels()
     hot.SetKnob(PedalState::PAGE_META, PedalState::META_OUT_LEVEL, 1.0f);
     Chain c2;
     c2.Init(kSr);
-    auto rh = Run(c2, hot, 24000, 4800, [](size_t n) { return 0.1f * Sine(n, 440.f); });
+    auto rh = Run(
+        c2, hot, 24000, 4800, [](size_t n) { return 0.1f * Sine(n, 440.f); });
 
     snprintf(detail, sizeof detail, "(%.1f dB)", Db(rh.peak / 0.1f));
     Check(std::fabs(Db(rh.peak / 0.1f) - 12.f) < 0.5f,
@@ -867,11 +934,14 @@ static void TestBypassIsClean()
 
     Chain chain;
     chain.Init(kSr);
-    auto r = Run(chain, s, 4800, 2400, [](size_t n) { return 0.5f * Sine(n, 440.f); });
+    auto r = Run(
+        chain, s, 4800, 2400, [](size_t n) { return 0.5f * Sine(n, 440.f); });
 
     char detail[128];
     snprintf(detail, sizeof detail, "(peak %.4f, expected 0.5)", r.peak);
-    Check(std::fabs(r.peak - 0.5f) < 1e-4f, "bypass passes the input bit for bit", detail);
+    Check(std::fabs(r.peak - 0.5f) < 1e-4f,
+          "bypass passes the input bit for bit",
+          detail);
 }
 
 static void TestOddBlockSizes()
@@ -882,8 +952,9 @@ static void TestOddBlockSizes()
     PedalState s;
     Neutral(s);
 
-    const size_t n = 1000;
-    std::vector<float> in_l(n), in_r(n), out_a_l(n), out_a_r(n), out_b_l(n), out_b_r(n);
+    const size_t       n = 1000;
+    std::vector<float> in_l(n), in_r(n), out_a_l(n), out_a_r(n), out_b_l(n),
+        out_b_r(n);
     for(size_t i = 0; i < n; i++)
     {
         in_l[i] = 0.4f * Sine(i, 300.f);
@@ -894,9 +965,9 @@ static void TestOddBlockSizes()
     a.Init(kSr);
     for(size_t off = 0; off < n; off += 48)
     {
-        const size_t sz     = (n - off) < 48 ? (n - off) : 48;
-        const float* ip[2]  = {in_l.data() + off, in_r.data() + off};
-        float*       op[2]  = {out_a_l.data() + off, out_a_r.data() + off};
+        const size_t sz    = (n - off) < 48 ? (n - off) : 48;
+        const float* ip[2] = {in_l.data() + off, in_r.data() + off};
+        float*       op[2] = {out_a_l.data() + off, out_a_r.data() + off};
         a.Process(s, ip, op, sz);
     }
 
@@ -912,7 +983,9 @@ static void TestOddBlockSizes()
 
     char detail[128];
     snprintf(detail, sizeof detail, "(largest sample difference %.2e)", worst);
-    Check(worst < 1e-5f, "a 1000-frame block matches the same audio in 48-frame blocks", detail);
+    Check(worst < 1e-5f,
+          "a 1000-frame block matches the same audio in 48-frame blocks",
+          detail);
 }
 
 
@@ -981,7 +1054,9 @@ static void TestSysexIdentity()
     using namespace boontasysex;
 
     uint8_t      m[kMaxMessage];
-    const size_t n = EncodeIdentity(m, sizeof(m), effects::Count(),
+    const size_t n = EncodeIdentity(m,
+                                    sizeof(m),
+                                    effects::Count(),
                                     PedalState::SLOT_LAST,
                                     PedalState::kKnobCount,
                                     SavedBank::kPresetCount);
@@ -990,7 +1065,8 @@ static void TestSysexIdentity()
     Check(SevenBitClean(m, n), "sysex: identity is 7-bit clean");
     Check(m[1] == 0x7D && m[2] == 0x42 && m[3] == 0x41,
           "sysex: identity carries the right header");
-    Check(m[4] == kProtocolVersion, "sysex: identity states the protocol version");
+    Check(m[4] == kProtocolVersion,
+          "sysex: identity states the protocol version");
     Check(m[5] == effects::Count(), "sysex: identity counts the effects");
     Check(m[6] == PedalState::SLOT_LAST && m[7] == PedalState::kKnobCount
               && m[8] == SavedBank::kPresetCount,
@@ -1011,28 +1087,33 @@ static void TestSysexCatalogueDescribesEveryEffect()
         Check(n > 0, "sysex: effect encodes", d.name);
         Check(SevenBitClean(m, n), "sysex: effect is 7-bit clean", d.name);
         Check(m[3] == kRspEffect && m[4] == id,
-              "sysex: effect carries its own id", d.name);
+              "sysex: effect carries its own id",
+              d.name);
 
-        size_t    at = 5;
-        const int r = m[at++], g = m[at++], b = m[at++];
+        size_t     at = 5;
+        const int  r = m[at++], g = m[at++], b = m[at++];
         const bool colour_ok = std::fabs(r / 127.f - d.r) < 0.01f
                                && std::fabs(g / 127.f - d.g) < 0.01f
                                && std::fabs(b / 127.f - d.b) < 0.01f;
         Check(colour_ok, "sysex: effect colour round-trips", d.name);
 
         Check(GetString(m, n, at) == std::string(d.name),
-              "sysex: effect name round-trips", d.name);
+              "sysex: effect name round-trips",
+              d.name);
         Check(GetString(m, n, at) == std::string(d.toggle),
-              "sysex: toggle label round-trips", d.name);
+              "sysex: toggle label round-trips",
+              d.name);
 
         bool params_ok = true;
         for(int k = 0; k < Effect::kParamCount; k++)
             if(GetString(m, n, at) != std::string(d.param[k].name))
                 params_ok = false;
-        Check(params_ok, "sysex: six parameter names round-trip in knob order",
+        Check(params_ok,
+              "sysex: six parameter names round-trip in knob order",
               d.name);
 
-        Check(at == n - 1, "sysex: nothing left over before the terminator",
+        Check(at == n - 1,
+              "sysex: nothing left over before the terminator",
               d.name);
     }
 }
@@ -1051,7 +1132,7 @@ static void TestSysexRefusesToOverrun()
           "sysex: effect refuses a short buffer");
 
     // A descriptor full of nulls must not crash or emit a high byte.
-    EffectDesc empty{};
+    EffectDesc   empty{};
     const size_t n = EncodeEffect(m, sizeof(m), 0, empty);
     Check(n > 0 && SevenBitClean(m, n),
           "sysex: a descriptor full of nulls still encodes cleanly");
@@ -1091,6 +1172,8 @@ int main()
     TestBypassIsClean();
     TestOddBlockSizes();
 
-    printf("\n%s (%d failing)\n\n", failures ? "FAILURES" : "all passed", failures);
+    printf("\n%s (%d failing)\n\n",
+           failures ? "FAILURES" : "all passed",
+           failures);
     return failures ? 1 : 0;
 }

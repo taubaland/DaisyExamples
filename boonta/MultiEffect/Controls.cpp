@@ -71,8 +71,7 @@ void Controls::ParkKnobs(PedalState::Page page)
 {
     for(int i = 0; i < PedalState::kKnobCount; i++)
     {
-        const float pot
-            = hw_->GetKnobValue(static_cast<DaisyBoonta::Knob>(i));
+        const float pot = hw_->GetKnobValue(static_cast<DaisyBoonta::Knob>(i));
         const float stored = state_->GetKnob(page, i);
 
         armed_[i]         = false;
@@ -98,8 +97,7 @@ void Controls::ReadKnobs()
 
     for(int i = 0; i < PedalState::kKnobCount; i++)
     {
-        const float pot
-            = hw_->GetKnobValue(static_cast<DaisyBoonta::Knob>(i));
+        const float pot = hw_->GetKnobValue(static_cast<DaisyBoonta::Knob>(i));
 
         if(!armed_[i])
         {
@@ -193,8 +191,7 @@ void Controls::ReadButtons()
     {
         // The meta page edits the chain rather than any one effect, so there is
         // nothing for a short press to switch out there.
-        const PedalState::Slot slot
-            = PedalState::PageSlot(state_->GetPage());
+        const PedalState::Slot slot = PedalState::PageSlot(state_->GetPage());
 
         if(slot != PedalState::SLOT_LAST)
             state_->ToggleSlotBypass(slot);

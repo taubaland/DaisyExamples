@@ -106,9 +106,9 @@ class PedalState
     /** True when freeze will stay on with nothing held down -- latched on
      *  the footswitch, or asserted by a controller. The LED uses this to
      *  tell a freeze you can walk away from from one you cannot. */
-    bool FreezeLatched() const { return freeze_latched_ || freeze_remote_; }
-    Mode      GetMode() const { return static_cast<Mode>(mode_); }
-    float     GetOutputLevel() const { return output_level_; }
+    bool  FreezeLatched() const { return freeze_latched_ || freeze_remote_; }
+    Mode  GetMode() const { return static_cast<Mode>(mode_); }
+    float GetOutputLevel() const { return output_level_; }
 
   private:
     float     param_[PARAM_LAST];

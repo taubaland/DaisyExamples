@@ -230,12 +230,12 @@ void Effect::UpdateParams(const PedalState& state)
     const float density
         = fclamp(state.GetParam(PedalState::PARAM_DENSITY), 0.f, 1.f);
 
-    spread_ = kSpread[static_cast<int>(
-        state.GetToggle(PedalState::TOGGLE_SPREAD))];
+    spread_
+        = kSpread[static_cast<int>(state.GetToggle(PedalState::TOGGLE_SPREAD))];
     feedback_ = kFeedback[static_cast<int>(
         state.GetToggle(PedalState::TOGGLE_FEEDBACK))];
-    reverb_ = kReverb[static_cast<int>(
-        state.GetToggle(PedalState::TOGGLE_REVERB))];
+    reverb_
+        = kReverb[static_cast<int>(state.GetToggle(PedalState::TOGGLE_REVERB))];
 
     float fb_damp_hz = kFbDampDefaultHz;
 

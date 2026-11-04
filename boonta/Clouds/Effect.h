@@ -91,10 +91,10 @@ class Effect
         float    pan_r;
     };
 
-    void  UpdateParams(const PedalState& state);
-    void  Schedule();
-    void  Spawn(uint32_t start_lag);
-    void  RenderGrains(float& out_l, float& out_r);
+    void UpdateParams(const PedalState& state);
+    void Schedule();
+    void Spawn(uint32_t start_lag);
+    void RenderGrains(float& out_l, float& out_r);
 
     /** Distance behind the write head that a fresh grain should start at,
      *  given the current POSITION setting. */
@@ -107,7 +107,7 @@ class Effect
     float sample_rate_;
 
     Grain    grain_[kMaxGrains];
-    uint32_t write_ = 0;    /**< buffer write head */
+    uint32_t write_       = 0;   /**< buffer write head */
     float    spawn_timer_ = 0.f; /**< samples until the next grain */
     int      next_grain_  = 0;   /**< round-robin slot, for the fixed modes */
     int      voices_      = 2;   /**< slots the current mode uses */
@@ -118,21 +118,21 @@ class Effect
     float lag_ = 0.f;
 
     // --- block-rate parameters, resolved in UpdateParams() -------------
-    PedalState::Mode mode_      = PedalState::MODE_GRANULAR;
-    bool             frozen_    = false;
-    float            position_  = 0.f;
-    uint32_t         grain_len_ = 2048;
-    float            pitch_inc_ = 1.f;
-    float            interval_  = 1024.f; /**< samples between grains */
+    PedalState::Mode mode_       = PedalState::MODE_GRANULAR;
+    bool             frozen_     = false;
+    float            position_   = 0.f;
+    uint32_t         grain_len_  = 2048;
+    float            pitch_inc_  = 1.f;
+    float            interval_   = 1024.f; /**< samples between grains */
     float            randomness_ = 0.f;
-    float            scatter_   = 0.f; /**< start-point jitter, in samples */
-    float            ramp_      = 0.25f;
-    float            spread_    = 0.f;
-    float            feedback_  = 0.f;
-    float            reverb_    = 0.f;
-    float            mix_       = 0.f;
-    float            wet_gain_  = 1.f;
-    float            play_rate_ = 1.f;
+    float            scatter_    = 0.f; /**< start-point jitter, in samples */
+    float            ramp_       = 0.25f;
+    float            spread_     = 0.f;
+    float            feedback_   = 0.f;
+    float            reverb_     = 0.f;
+    float            mix_        = 0.f;
+    float            wet_gain_   = 1.f;
+    float            play_rate_  = 1.f;
     float            fb_damp_coeff_ = 1.f;
 
     float fb_damp_l_ = 0.f;

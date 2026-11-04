@@ -114,10 +114,8 @@ size_t EncodeIdentity(uint8_t* out,
 
 /** Build one effect's catalogue entry. Returns bytes written, or 0 if the
  *  descriptor will not fit in `capacity`. */
-size_t EncodeEffect(uint8_t*          out,
-                    size_t            capacity,
-                    int               id,
-                    const EffectDesc& desc);
+size_t
+EncodeEffect(uint8_t* out, size_t capacity, int id, const EffectDesc& desc);
 
 } // namespace boontasysex
 

@@ -55,9 +55,12 @@
 class GenEffect : public Effect
 {
   public:
-    void Init(float sample_rate) override;
-    void Process(const float* params, int toggle,
-                 float* left, float* right, size_t size) override;
+    void              Init(float sample_rate) override;
+    void              Process(const float* params,
+                              int          toggle,
+                              float*       left,
+                              float*       right,
+                              size_t       size) override;
     const EffectDesc& Desc() const override;
 
   private:
@@ -67,10 +70,10 @@ class GenEffect : public Effect
     /** One knob's 0-1 value, scaled to what that patch parameter expects. */
     static float Scale(int knob, float value);
 
-    void* state_ = nullptr;
-    float sample_rate_ = 48000.f;
+    void* state_                     = nullptr;
+    float sample_rate_               = 48000.f;
     float last_[Effect::kParamCount] = {};
-    bool  primed_ = false;
+    bool  primed_                    = false;
 };
 
 #endif // BOONTA_GEN_EFFECT

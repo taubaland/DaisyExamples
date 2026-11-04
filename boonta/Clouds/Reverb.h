@@ -33,8 +33,8 @@ class Reverb
     float decay_;
     float damp_coeff_;
 
-    float damp_z_l_ = 0.f;
-    float damp_z_r_ = 0.f;
+    float damp_z_l_    = 0.f;
+    float damp_z_r_    = 0.f;
     float bandwidth_z_ = 0.f;
 
     /** Carried across frames: each loop is fed by the other one. */

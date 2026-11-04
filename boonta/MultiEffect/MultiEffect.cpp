@@ -58,10 +58,10 @@ using namespace daisy;
 
 static DaisyBoonta hw;
 
-static PedalState state;
-static Controls   controls;
-static LedView    view;
-static Chain      chain;
+static PedalState  state;
+static Controls    controls;
+static LedView     view;
+static Chain       chain;
 static Storage     storage(hw.seed.qspi);
 static MidiControl midi;
 
@@ -79,10 +79,10 @@ static CpuLoadMeter load_meter;
 
 static struct
 {
-    volatile uint32_t blocks;      /**< audio callbacks since boot */
-    volatile float    avg;         /**< smoothed load, 0 to 1      */
+    volatile uint32_t blocks; /**< audio callbacks since boot */
+    volatile float    avg;    /**< smoothed load, 0 to 1      */
     volatile float    min;
-    volatile float    max;         /**< worst block since boot     */
+    volatile float    max; /**< worst block since boot     */
     volatile float    sample_rate;
     volatile uint32_t block_size;
 } profile;
@@ -107,7 +107,8 @@ static struct
 
 static constexpr float kProbeDecay = 0.9995f;
 
-static inline void ProbePeak(volatile float& held, const float* buf, size_t size)
+static inline void
+ProbePeak(volatile float& held, const float* buf, size_t size)
 {
     float p = held * kProbeDecay;
     for(size_t i = 0; i < size; i++)

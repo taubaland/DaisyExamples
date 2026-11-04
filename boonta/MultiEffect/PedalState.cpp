@@ -4,22 +4,24 @@
  *  position in the chain. Kept here rather than in the header so the table is
  *  a private detail of SlotAt(). */
 static constexpr PedalState::Slot kChainOrder[PedalState::kOrderCount]
-                                             [PedalState::SLOT_LAST] = {
-    {PedalState::SLOT_EQ, PedalState::SLOT_DRIVE, PedalState::SLOT_REVERB},
-    {PedalState::SLOT_EQ, PedalState::SLOT_REVERB, PedalState::SLOT_DRIVE},
-    {PedalState::SLOT_DRIVE, PedalState::SLOT_EQ, PedalState::SLOT_REVERB},
-    {PedalState::SLOT_DRIVE, PedalState::SLOT_REVERB, PedalState::SLOT_EQ},
-    {PedalState::SLOT_REVERB, PedalState::SLOT_EQ, PedalState::SLOT_DRIVE},
-    {PedalState::SLOT_REVERB, PedalState::SLOT_DRIVE, PedalState::SLOT_EQ},
+                                             [PedalState::SLOT_LAST]
+    = {
+        {PedalState::SLOT_EQ, PedalState::SLOT_DRIVE, PedalState::SLOT_REVERB},
+        {PedalState::SLOT_EQ, PedalState::SLOT_REVERB, PedalState::SLOT_DRIVE},
+        {PedalState::SLOT_DRIVE, PedalState::SLOT_EQ, PedalState::SLOT_REVERB},
+        {PedalState::SLOT_DRIVE, PedalState::SLOT_REVERB, PedalState::SLOT_EQ},
+        {PedalState::SLOT_REVERB, PedalState::SLOT_EQ, PedalState::SLOT_DRIVE},
+        {PedalState::SLOT_REVERB, PedalState::SLOT_DRIVE, PedalState::SLOT_EQ},
 };
 
 /** Which meta knob carries which slot's amount. The three are interleaved with
  *  the gain knobs rather than grouped, so this is a table and not arithmetic --
  *  reorder the meta page and only this changes. */
-static constexpr PedalState::MetaParam kSlotAmountKnob[PedalState::SLOT_LAST] = {
-    PedalState::META_EQ_AMOUNT,     // SLOT_EQ
-    PedalState::META_DRIVE_AMOUNT,  // SLOT_DRIVE
-    PedalState::META_REVERB_AMOUNT, // SLOT_REVERB
+static constexpr PedalState::MetaParam kSlotAmountKnob[PedalState::SLOT_LAST]
+    = {
+        PedalState::META_EQ_AMOUNT,     // SLOT_EQ
+        PedalState::META_DRIVE_AMOUNT,  // SLOT_DRIVE
+        PedalState::META_REVERB_AMOUNT, // SLOT_REVERB
 };
 
 /** PageSlot() leans on the first three pages being the three slots. */
@@ -70,8 +72,8 @@ void PedalState::Reset()
 
     expression_     = 0.f;
     page_           = PAGE_EQ;
-    order_          = 0; // EQ -> Drive -> Reverb
-    bypassed_       = true; // boot up out of circuit
+    order_          = 0;     // EQ -> Drive -> Reverb
+    bypassed_       = true;  // boot up out of circuit
     page_edited_    = false; // nothing has been changed on the boot page yet
     pickup_pending_ = 0;
 }

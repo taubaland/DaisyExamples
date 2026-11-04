@@ -54,9 +54,9 @@ static constexpr uint8_t kSwitchThreshold = 64;
 enum class Target
 {
     NONE,
-    PARAM,         /**< page + knob   */
+    PARAM, /**< page + knob   */
     MASTER_BYPASS,
-    SLOT_BYPASS,   /**< index is the slot */
+    SLOT_BYPASS, /**< index is the slot */
     CHAIN_ORDER,
     PAGE_SELECT,
 };

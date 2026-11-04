@@ -49,9 +49,9 @@ static void PageColour(const PedalState& state,
         return;
     }
     const EffectDesc& d = effects::Get(state.GetSlotEffect(slot))->Desc();
-    r = d.r;
-    g = d.g;
-    b = d.b;
+    r                   = d.r;
+    g                   = d.g;
+    b                   = d.b;
 }
 
 /** The chain display leans on the page colours, which only works while the
@@ -121,18 +121,16 @@ void LedView::DrawPageLed(const PedalState& state)
     // LED pulsed permanently and said nothing. "Any knob picked up" clears the
     // moment a pot happens to sit on its stored value, which can happen on the
     // first block after arriving, without anything having been edited.
-    const float level = state.PageEdited()
-                            ? 1.f
-                            : kParkedFloor
-                                  + (1.f - kParkedFloor) * Pulse(kParkedPeriod);
+    const float level
+        = state.PageEdited()
+              ? 1.f
+              : kParkedFloor + (1.f - kParkedFloor) * Pulse(kParkedPeriod);
 
     float r, g, b;
     PageColour(state, page, r, g, b);
 
-    hw_->SetFootSwitchLed(DaisyBoonta::FOOTSWITCH_LED_1,
-                          r * level,
-                          g * level,
-                          b * level);
+    hw_->SetFootSwitchLed(
+        DaisyBoonta::FOOTSWITCH_LED_1, r * level, g * level, b * level);
 }
 
 void LedView::DrawBypassLed(const PedalState& state)
@@ -154,8 +152,7 @@ void LedView::DrawChainLeds(const PedalState& state)
         // Full brightness in circuit, a fifth of it when switched out. Same
         // colour either way, so the order stays readable while the state of
         // each effect is obvious.
-        const float level
-            = state.SlotBypassed(slot) ? kBypassedLevel : 1.f;
+        const float level = state.SlotBypassed(slot) ? kBypassedLevel : 1.f;
 
         const EffectDesc& d = effects::Get(state.GetSlotEffect(slot))->Desc();
 

@@ -64,13 +64,13 @@ static CpuLoadMeter load_meter;
 
 static struct
 {
-    volatile uint32_t blocks;      /**< audio callbacks since boot */
-    volatile float    avg;         /**< smoothed load, 0 to 1      */
+    volatile uint32_t blocks; /**< audio callbacks since boot */
+    volatile float    avg;    /**< smoothed load, 0 to 1      */
     volatile float    min;
-    volatile float    max;         /**< worst block since boot     */
+    volatile float    max; /**< worst block since boot     */
     volatile float    sample_rate;
     volatile uint32_t block_size;
-    volatile uint32_t midi_usb;    /**< messages in, per transport */
+    volatile uint32_t midi_usb; /**< messages in, per transport */
     volatile uint32_t midi_uart;
     volatile uint32_t midi_accepted;
 } profile;

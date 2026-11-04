@@ -44,7 +44,7 @@ static bool LedActive(int sw_pos)
 {
     switch(sw_pos)
     {
-        case Switch3::POS_UP:   return FlashOn(kSlowPeriodMs);
+        case Switch3::POS_UP: return FlashOn(kSlowPeriodMs);
         case Switch3::POS_DOWN: return FlashOn(kFastPeriodMs);
         default: return true; // POS_CENTER = solid on
     }

@@ -74,8 +74,9 @@ extern "C" void* g_pfnVectors[];
 // extern "C" so that the symbol in the ELF is plainly `g_mailbox` and not a
 // mangled, file-local one: qspi-write.sh finds the mailbox with `nm`, and a
 // static would be both renamed and invisible to it.
-extern "C" {
-Mailbox g_mailbox;
+extern "C"
+{
+    Mailbox g_mailbox;
 }
 
 // The host's breakpoint target. `used` and `noinline` because nothing calls it
@@ -140,8 +141,7 @@ void DoWrite()
         return;
     }
 
-    if(hw.qspi.Write(address, size, g_mailbox.data)
-       != QSPIHandle::Result::OK)
+    if(hw.qspi.Write(address, size, g_mailbox.data) != QSPIHandle::Result::OK)
     {
         Fail(kStatusErrQspi, hw.qspi.GetStatus());
         return;

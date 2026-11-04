@@ -16,10 +16,16 @@ const EffectDesc& GenEffect::Desc() const
 {
     static const EffectDesc kDesc = {
         "Gen",
-        0.2f, 1.0f, 0.4f, // a colour of its own, distinct from the built-ins
+        0.2f,
+        1.0f,
+        0.4f, // a colour of its own, distinct from the built-ins
         "unused by this patch",
-        {{"param 1"}, {"param 2"}, {"param 3"},
-         {"param 4"}, {"param 5"}, {"param 6"}},
+        {{"param 1"},
+         {"param 2"},
+         {"param 3"},
+         {"param 4"},
+         {"param 5"},
+         {"param 6"}},
     };
     return kDesc;
 }

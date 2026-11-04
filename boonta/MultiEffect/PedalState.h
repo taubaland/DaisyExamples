@@ -85,7 +85,10 @@ class PedalState
     void Reset();
 
     // --- written by the Controller -------------------------------------
-    void SetKnob(Page page, int knob, float value) { param_[page][knob] = value; }
+    void SetKnob(Page page, int knob, float value)
+    {
+        param_[page][knob] = value;
+    }
     void SetExpression(float value) { expression_ = value; }
     void SetToggle(int index, TogglePos pos) { toggle_[index] = pos; }
     void SetBypass(bool bypassed) { bypassed_ = bypassed; }
@@ -145,11 +148,11 @@ class PedalState
      *  chain as a whole rather than any one effect. */
     static Slot PageSlot(Page page);
 
-    Page      GetPage() const { return page_; }
-    int       GetOrder() const { return order_; }
+    Page GetPage() const { return page_; }
+    int  GetOrder() const { return order_; }
     /** Which effect sits at the given position in the chain, 0 = first. */
-    Slot      SlotAt(int position) const;
-    float     GetExpression() const { return expression_; }
+    Slot  SlotAt(int position) const;
+    float GetExpression() const { return expression_; }
     /** A slot's toggle. Slot i is handed toggle i. */
     TogglePos GetToggle(int index) const { return toggle_[index]; }
     bool      IsBypassed() const { return bypassed_; }
@@ -162,7 +165,7 @@ class PedalState
      *  Deliberately not "a knob has been picked up": a pot that happens to sit
      *  on its stored value picks up on the first block, which would clear the
      *  indicator without anything having been edited. */
-    bool      PageEdited() const { return page_edited_; }
+    bool PageEdited() const { return page_edited_; }
 
   private:
     float     param_[PAGE_LAST][kKnobCount];

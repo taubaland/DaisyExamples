@@ -48,18 +48,18 @@ void Check(bool ok, const char* what)
 
 struct BlockStats
 {
-    float peak     = 0.f;
-    float in_peak  = 0.f;
-    bool  finite   = true;
+    float peak    = 0.f;
+    float in_peak = 0.f;
+    bool  finite  = true;
 };
 
 /** Run `blocks` blocks through the effect and report what came out. `gen` is
  *  called per sample to make the input. */
 template <typename Gen>
-BlockStats Run(Effect&            fx,
-               PedalState&        state,
-               int                blocks,
-               Gen                gen,
+BlockStats Run(Effect&             fx,
+               PedalState&         state,
+               int                 blocks,
+               Gen                 gen,
                std::vector<float>* collect = nullptr)
 {
     BlockStats stats;
@@ -220,7 +220,8 @@ void TestBypassIsExact()
         exact = exact && ol[i] == l[i] && or_[i] == r[i];
 
     Check(exact, "bypass passes the input through bit for bit");
-    Check(in_peak > 0.f, "the recording path still reports a level when bypassed");
+    Check(in_peak > 0.f,
+          "the recording path still reports a level when bypassed");
 }
 
 void TestItMakesSound()

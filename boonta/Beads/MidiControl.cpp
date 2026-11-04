@@ -90,10 +90,9 @@ void MidiControl::ApplyControlChange(uint8_t cc, uint8_t value)
             break;
 
         case midimap::Target::TOGGLE:
-            state_->SetToggle(
-                static_cast<PedalState::Toggle>(b.index),
-                static_cast<PedalState::TogglePos>(
-                    midimap::Quantise(value, 3)));
+            state_->SetToggle(static_cast<PedalState::Toggle>(b.index),
+                              static_cast<PedalState::TogglePos>(
+                                  midimap::Quantise(value, 3)));
             break;
 
         case midimap::Target::QUANTISE:

@@ -66,14 +66,14 @@ namespace usbdiag
  *  `p/x usbdiag::snapshot` while the host is trying to enumerate. */
 struct Snapshot
 {
-    uint32_t pcgcctl;  /**< bit 0 STOPCLK: the PHY clock is gated       */
-    uint32_t gahbcfg;  /**< bit 0 GINT: interrupts reach the core at all */
-    uint32_t gintsts;  /**< USBRST/ENUMDNE say a reset was seen         */
-    uint32_t dsts;     /**< bit 0 SUSPSTS, bits 2:1 ENUMSPD             */
-    uint32_t dctl;     /**< bit 1 SDIS: soft disconnect                 */
-    uint32_t crs_cr;   /**< bits 31:24 TRIM, bit 6 AUTOTRIMEN, 5 CEN    */
-    uint32_t crs_isr;  /**< bits 31:16 FECAP, 15 FEDIR, 1 SYNCOKF, ...  */
-    uint32_t ungated;  /**< how many times a gated PHY clock was found  */
+    uint32_t pcgcctl; /**< bit 0 STOPCLK: the PHY clock is gated       */
+    uint32_t gahbcfg; /**< bit 0 GINT: interrupts reach the core at all */
+    uint32_t gintsts; /**< USBRST/ENUMDNE say a reset was seen         */
+    uint32_t dsts;    /**< bit 0 SUSPSTS, bits 2:1 ENUMSPD             */
+    uint32_t dctl;    /**< bit 1 SDIS: soft disconnect                 */
+    uint32_t crs_cr;  /**< bits 31:24 TRIM, bit 6 AUTOTRIMEN, 5 CEN    */
+    uint32_t crs_isr; /**< bits 31:16 FECAP, 15 FEDIR, 1 SYNCOKF, ...  */
+    uint32_t ungated; /**< how many times a gated PHY clock was found  */
 };
 
 extern volatile Snapshot snapshot;

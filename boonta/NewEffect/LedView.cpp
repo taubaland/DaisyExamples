@@ -58,9 +58,8 @@ void LedView::DrawFootswitchLeds(const PedalState& state)
     }
     else
     {
-        const uint32_t period
-            = static_cast<uint32_t>(state.GetTapIntervalMs());
-        const float f = (period > 0 && FlashOn(period)) ? 0.8f : 0.f;
+        const uint32_t period = static_cast<uint32_t>(state.GetTapIntervalMs());
+        const float    f      = (period > 0 && FlashOn(period)) ? 0.8f : 0.f;
         hw_->SetFootSwitchLed(DaisyBoonta::FOOTSWITCH_LED_2, 0.f, f, 0.f);
     }
 }

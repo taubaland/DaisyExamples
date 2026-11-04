@@ -19,7 +19,10 @@ class LedView
 {
   public:
     LedView()
-    : hw_(nullptr), meter_(0.f), clip_(0.f), relays_engaged_(false),
+    : hw_(nullptr),
+      meter_(0.f),
+      clip_(0.f),
+      relays_engaged_(false),
       relays_known_(false)
     {
     }

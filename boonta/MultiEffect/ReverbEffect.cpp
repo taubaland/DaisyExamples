@@ -164,10 +164,16 @@ const EffectDesc& ReverbEffect::Desc() const
 {
     static const EffectDesc kDesc = {
         "Reverb",
-        1.0f, 0.0f, 1.0f, // purple
+        1.0f,
+        0.0f,
+        1.0f, // purple
         "size: room / plate / cavern",
-        {{"time"}, {"damping"}, {"pre-delay"},
-         {"diffusion"}, {"low cut"}, {"mix"}},
+        {{"time"},
+         {"damping"},
+         {"pre-delay"},
+         {"diffusion"},
+         {"low cut"},
+         {"mix"}},
     };
     return kDesc;
 }
@@ -179,21 +185,15 @@ void ReverbEffect::UpdateCoeffs(const float* params, int toggle, size_t size)
     unit_      = (sample_rate_ / kRefRate) * kSizeScale[size_index];
     size_trim_ = kSizeTrim[size_index];
 
-    decay_ = kDecayMin
-             + params[0] * (kDecayMax - kDecayMin);
+    decay_ = kDecayMin + params[0] * (kDecayMax - kDecayMin);
 
     damp_coeff_ = PoleCoeff(sample_rate_,
-                            Exponential(params[1],
-                                        kDampMinHz,
-                                        kDampMaxHz));
+                            Exponential(params[1], kDampMinHz, kDampMaxHz));
 
-    lowcut_coeff_ = PoleCoeff(sample_rate_,
-                              Exponential(params[4],
-                                          kLowCutMinHz,
-                                          kLowCutMaxHz));
+    lowcut_coeff_ = PoleCoeff(
+        sample_rate_, Exponential(params[4], kLowCutMinHz, kLowCutMaxHz));
 
-    predelay_ = params[2] * kPredelayMaxMs
-                * sample_rate_ * 0.001f;
+    predelay_ = params[2] * kPredelayMaxMs * sample_rate_ * 0.001f;
     if(predelay_ > 32760.f)
         predelay_ = 32760.f;
     if(predelay_ < 1.f)

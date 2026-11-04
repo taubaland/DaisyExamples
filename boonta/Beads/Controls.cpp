@@ -126,10 +126,7 @@ void Controls::ReadKnobs()
 
     if(kExpressionTarget != PedalState::PARAM_LAST)
     {
-        if(Claim(exp_pickup_,
-                 exp,
-                 state_->GetParam(kExpressionTarget),
-                 false))
+        if(Claim(exp_pickup_, exp, state_->GetParam(kExpressionTarget), false))
             state_->SetParam(kExpressionTarget, exp);
     }
 }

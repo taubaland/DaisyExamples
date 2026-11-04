@@ -63,16 +63,16 @@ class Controls
     bool             armed_[PedalState::kKnobCount];
     /** Pot was above the stored value when the page was entered. Pickup
      *  happens when that stops being true. */
-    bool             entered_above_[PedalState::kKnobCount];
+    bool entered_above_[PedalState::kKnobCount];
 
     /** The current hold of the page footswitch has already advanced a page, so
      *  the release must not also toggle a bypass. Starts true so a release seen
      *  before any press -- at boot, with a foot already down -- does nothing. */
-    bool             fs1_long_fired_;
+    bool fs1_long_fired_;
 
     /** Each knob's parameter as it stood on arriving at the page, so "has this
      *  been edited since I got here" can be answered. */
-    float            entry_value_[PedalState::kKnobCount];
+    float entry_value_[PedalState::kKnobCount];
 };
 
 #endif

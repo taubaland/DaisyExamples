@@ -121,11 +121,11 @@ void Reverb::Init(float sample_rate)
     SetLength(tank.ap2_r, kAp2R, scale);
     SetLength(tank.del2_r, kDel2R, scale);
 
-    damp_z_l_     = 0.f;
-    damp_z_r_     = 0.f;
-    bandwidth_z_  = 0.f;
-    cross_l_      = 0.f;
-    cross_r_      = 0.f;
+    damp_z_l_    = 0.f;
+    damp_z_r_    = 0.f;
+    bandwidth_z_ = 0.f;
+    cross_l_     = 0.f;
+    cross_r_     = 0.f;
 
     SetTail(0.6f, 5000.f);
 }

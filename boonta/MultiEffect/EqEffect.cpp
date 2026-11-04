@@ -55,10 +55,16 @@ const EffectDesc& EqEffect::Desc() const
 {
     static const EffectDesc kDesc = {
         "EQ",
-        0.0f, 1.0f, 1.0f, // teal
+        0.0f,
+        1.0f,
+        1.0f, // teal
         "band width: wide / medium / tight",
-        {{"low freq"}, {"mid freq"}, {"high freq"},
-         {"low gain"}, {"mid gain"}, {"high gain"}},
+        {{"low freq"},
+         {"mid freq"},
+         {"high freq"},
+         {"low gain"},
+         {"mid gain"},
+         {"high gain"}},
     };
     return kDesc;
 }
@@ -112,10 +118,10 @@ void EqEffect::Process(const float* params,
     {
         for(size_t i = 0; i < size; i++)
         {
-            float x = channel[c][i];
-            x       = low_z_[c].Process(low_, x);
-            x       = mid_z_[c].Process(mid_, x);
-            x       = high_z_[c].Process(high_, x);
+            float x       = channel[c][i];
+            x             = low_z_[c].Process(low_, x);
+            x             = mid_z_[c].Process(mid_, x);
+            x             = high_z_[c].Process(high_, x);
             channel[c][i] = x;
         }
     }

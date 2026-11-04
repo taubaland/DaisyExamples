@@ -83,8 +83,8 @@ constexpr float kDrive[3] = {1.f, 1.6f, 2.4f};
 /** Lo-fi recording: eight bits, at a quarter of the sample rate. Applied to
  *  what goes *into* the buffer, the way Beads does it, so what comes back out
  *  is what was recorded rather than a filter on the way past. */
-constexpr float    kLofiLevels    = 128.f;
-constexpr uint32_t kLofiDecimate  = 4;
+constexpr float    kLofiLevels   = 128.f;
+constexpr uint32_t kLofiDecimate = 4;
 
 /** Grain envelope: a rising edge of `attack` and a falling edge of the rest,
  *  both smoothstepped.
@@ -195,9 +195,9 @@ float Effect::RandBi()
 
 void Effect::UpdateParams(const PedalState& state)
 {
-    frozen_    = state.IsFrozen();
-    quantise_  = state.GetQuantise();
-    mix_       = fclamp(state.GetParam(PedalState::PARAM_MIX), 0.f, 1.f);
+    frozen_   = state.IsFrozen();
+    quantise_ = state.GetQuantise();
+    mix_      = fclamp(state.GetParam(PedalState::PARAM_MIX), 0.f, 1.f);
 
     // The envelope never gets a truly instantaneous edge: both ends are held
     // off the rails, because a step is a click rather than an attack.
@@ -213,7 +213,7 @@ void Effect::UpdateParams(const PedalState& state)
               static_cast<float>(kMinGrainSamples)));
 
     const float time = fclamp(state.GetParam(PedalState::PARAM_TIME), 0.f, 1.f);
-    lag_ = kTimeMinSec * powf(kTimeSpan, time) * sample_rate_;
+    lag_             = kTimeMinSec * powf(kTimeSpan, time) * sample_rate_;
 
     // DENSITY does two things at once, as it does on Beads: how often a grain
     // starts, and how clocked that is. Fully down is a scatter of isolated
@@ -228,9 +228,11 @@ void Effect::UpdateParams(const PedalState& state)
     interval_        = fmaxf(sample_rate_ / rate, kMinIntervalSamples);
     randomness_      = 1.f - density;
 
-    const int seed    = static_cast<int>(state.GetToggle(PedalState::TOGGLE_SEED));
-    const int fb      = static_cast<int>(state.GetToggle(PedalState::TOGGLE_FEEDBACK));
-    const int quality = static_cast<int>(state.GetToggle(PedalState::TOGGLE_QUALITY));
+    const int seed = static_cast<int>(state.GetToggle(PedalState::TOGGLE_SEED));
+    const int fb
+        = static_cast<int>(state.GetToggle(PedalState::TOGGLE_FEEDBACK));
+    const int quality
+        = static_cast<int>(state.GetToggle(PedalState::TOGGLE_QUALITY));
 
     seed_semis_ = kSeedSemis[seed];
     seed_pan_   = kSeedPan[seed];

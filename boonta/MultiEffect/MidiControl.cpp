@@ -16,7 +16,7 @@ using namespace daisy;
  *
  *  Daisy Seed pin to port/pin: D13 = PB6, D14 = PB7, D9 = PG14, D10 = PG13.
  */
-static constexpr bool kUseCustomUartPins = false;
+static constexpr bool                            kUseCustomUartPins = false;
 static constexpr UartHandler::Config::Peripheral kUartPeriph
     = UartHandler::Config::Peripheral::USART_1;
 static constexpr Pin kUartRxPin = Pin(PORTB, 7);
@@ -49,8 +49,7 @@ void MidiControl::Init(DaisyBoonta* hw, PedalState* state)
     hw_->midi.StartReceive();
 
     MidiUsbHandler::Config usb_config;
-    usb_config.transport_config.periph
-        = MidiUsbTransport::Config::INTERNAL;
+    usb_config.transport_config.periph = MidiUsbTransport::Config::INTERNAL;
 
     // The default is 3, which is tuned for the occasional three-byte message
     // and not for a catalogue dump. Tx gives up if the class driver is still
@@ -175,8 +174,8 @@ void MidiControl::HandleSysex(const MidiEvent& event)
 {
     // Audio-callback context, so this only records what was asked for. The
     // reply is built and sent from ServiceSysex() in the main loop.
-    const auto req = boontasysex::ParseRequest(
-        event.sysex_data, event.sysex_message_len);
+    const auto req
+        = boontasysex::ParseRequest(event.sysex_data, event.sysex_message_len);
 
     switch(req)
     {
@@ -223,7 +222,7 @@ void MidiControl::ServiceSysex()
             return;
         }
         catalogue_next_ = id + 1;
-        len = boontasysex::EncodeEffect(
+        len             = boontasysex::EncodeEffect(
             msg, sizeof(msg), id, effects::Get(id)->Desc());
     }
 

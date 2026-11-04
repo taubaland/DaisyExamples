@@ -40,7 +40,7 @@ struct SavedState
      *  Without this a preset is meaningless the moment slots are
      *  interchangeable: six numbers restored into whichever effect happens to
      *  be loaded would set a reverb's decay from a drive's bias. */
-    uint8_t  slot_effect[PedalState::SLOT_LAST];
+    uint8_t slot_effect[PedalState::SLOT_LAST];
 
     /** How far a parameter must differ before the two blocks count as unalike.
      *
@@ -93,7 +93,7 @@ struct SavedState
  */
 struct SavedBank
 {
-    static constexpr uint32_t kVersion    = 3;
+    static constexpr uint32_t kVersion     = 3;
     static constexpr int      kPresetCount = 16; /**< program change 0-15 */
 
     uint32_t   version;
@@ -120,15 +120,14 @@ inline SavedState CaptureState(const PedalState& state)
     s.version = SavedState::kVersion;
     for(int p = 0; p < PedalState::PAGE_LAST; p++)
         for(int k = 0; k < PedalState::kKnobCount; k++)
-            s.param[p][k]
-                = state.GetKnob(static_cast<PedalState::Page>(p), k);
+            s.param[p][k] = state.GetKnob(static_cast<PedalState::Page>(p), k);
     s.page  = static_cast<int32_t>(state.GetPage());
     s.order = static_cast<int32_t>(state.GetOrder());
     for(int i = 0; i < PedalState::SLOT_LAST; i++)
     {
         const PedalState::Slot slot = static_cast<PedalState::Slot>(i);
-        s.slot_bypassed[i] = state.SlotBypassed(slot) ? 1 : 0;
-        s.slot_effect[i]   = static_cast<uint8_t>(state.GetSlotEffect(slot));
+        s.slot_bypassed[i]          = state.SlotBypassed(slot) ? 1 : 0;
+        s.slot_effect[i] = static_cast<uint8_t>(state.GetSlotEffect(slot));
     }
     s.bypassed = state.IsBypassed() ? 1 : 0;
     return s;

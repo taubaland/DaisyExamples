@@ -43,7 +43,8 @@ void Chain::Process(const PedalState&   state,
     for(size_t offset = 0; offset < size; offset += kMaxBlockSize)
     {
         const size_t remaining = size - offset;
-        const size_t chunk = remaining < kMaxBlockSize ? remaining : kMaxBlockSize;
+        const size_t chunk
+            = remaining < kMaxBlockSize ? remaining : kMaxBlockSize;
 
         ProcessChunk(state,
                      in[0] + offset,

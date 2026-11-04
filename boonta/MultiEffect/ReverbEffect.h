@@ -35,8 +35,11 @@ class ReverbEffect : public Effect
 
     void Init(float sample_rate) override;
 
-    void Process(const float* params, int toggle,
-                 float* left, float* right, size_t size) override;
+    void Process(const float* params,
+                 int          toggle,
+                 float*       left,
+                 float*       right,
+                 size_t       size) override;
 
     const EffectDesc& Desc() const override;
 
@@ -52,18 +55,18 @@ class ReverbEffect : public Effect
     float unit_ = 1.f;
 
     // Block-rate coefficients.
-    float predelay_    = 0.f;
-    float decay_       = 0.5f;
-    float damp_coeff_  = 1.f;
+    float predelay_     = 0.f;
+    float decay_        = 0.5f;
+    float damp_coeff_   = 1.f;
     float lowcut_coeff_ = 0.01f;
-    float in_diff1_    = 0.75f;
-    float in_diff2_    = 0.625f;
-    float dec_diff1_   = 0.7f;
-    float dec_diff2_   = 0.5f;
-    float mix_         = 0.3f;
-    float size_trim_   = 1.f;
-    float mod_l_       = 0.f;
-    float mod_r_       = 0.f;
+    float in_diff1_     = 0.75f;
+    float in_diff2_     = 0.625f;
+    float dec_diff1_    = 0.7f;
+    float dec_diff2_    = 0.5f;
+    float mix_          = 0.3f;
+    float size_trim_    = 1.f;
+    float mod_l_        = 0.f;
+    float mod_r_        = 0.f;
 
     // Filter state.
     float lowcut_z_ = 0.f;

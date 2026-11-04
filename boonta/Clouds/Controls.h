@@ -35,8 +35,11 @@ class Controls
 {
   public:
     Controls()
-    : hw_(nullptr), state_(nullptr), freeze_latched_(false),
-      freeze_hold_fired_(false), toggles_seeded_(false)
+    : hw_(nullptr),
+      state_(nullptr),
+      freeze_latched_(false),
+      freeze_hold_fired_(false),
+      toggles_seeded_(false)
     {
     }
 

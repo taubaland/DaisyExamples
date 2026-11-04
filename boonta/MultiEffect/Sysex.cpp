@@ -4,60 +4,60 @@ namespace boontasysex
 {
 namespace
 {
-/** 7-bit or nothing. Every byte inside a SysEx frame has to have bit 7 clear,
+    /** 7-bit or nothing. Every byte inside a SysEx frame has to have bit 7 clear,
  *  so anything outside printable ASCII becomes '?' rather than truncating the
  *  message or, worse, emitting a byte a parser would read as a status. */
-inline uint8_t Printable(char c)
-{
-    const uint8_t u = static_cast<uint8_t>(c);
-    return (u >= 0x20 && u < 0x7F) ? u : static_cast<uint8_t>('?');
-}
+    inline uint8_t Printable(char c)
+    {
+        const uint8_t u = static_cast<uint8_t>(c);
+        return (u >= 0x20 && u < 0x7F) ? u : static_cast<uint8_t>('?');
+    }
 
-/** A float from 0 to 1 as 0-127. Colours arrive as floats and have to survive
+    /** A float from 0 to 1 as 0-127. Colours arrive as floats and have to survive
  *  the 7-bit rule; a hundred and twenty-eight steps is far more than an LED
  *  driver or a CSS colour can show apart. */
-inline uint8_t Seven(float v)
-{
-    if(!(v > 0.f)) // also catches NaN, whose every comparison is false
-        return 0;
-    if(v >= 1.f)
-        return 127;
-    return static_cast<uint8_t>(v * 127.f + 0.5f);
-}
+    inline uint8_t Seven(float v)
+    {
+        if(!(v > 0.f)) // also catches NaN, whose every comparison is false
+            return 0;
+        if(v >= 1.f)
+            return 127;
+        return static_cast<uint8_t>(v * 127.f + 0.5f);
+    }
 
-/** Length-prefixed string. Returns bytes written, or 0 if it will not fit --
+    /** Length-prefixed string. Returns bytes written, or 0 if it will not fit --
  *  including the length byte, so a caller that checks the return never emits a
  *  half-written string. */
-size_t PutString(uint8_t* out, size_t capacity, const char* s)
-{
-    if(capacity < 1)
-        return 0;
+    size_t PutString(uint8_t* out, size_t capacity, const char* s)
+    {
+        if(capacity < 1)
+            return 0;
 
-    size_t len = 0;
-    if(s)
-        while(s[len] != '\0' && len < 127)
-            len++;
+        size_t len = 0;
+        if(s)
+            while(s[len] != '\0' && len < 127)
+                len++;
 
-    if(capacity < len + 1)
-        return 0;
+        if(capacity < len + 1)
+            return 0;
 
-    out[0] = static_cast<uint8_t>(len);
-    for(size_t i = 0; i < len; i++)
-        out[1 + i] = Printable(s[i]);
-    return len + 1;
-}
+        out[0] = static_cast<uint8_t>(len);
+        for(size_t i = 0; i < len; i++)
+            out[1 + i] = Printable(s[i]);
+        return len + 1;
+    }
 
-/** The four bytes every message starts with, after F0. */
-size_t PutHeader(uint8_t* out, size_t capacity, uint8_t command)
-{
-    if(capacity < 4)
-        return 0;
-    out[0] = kSysexStart;
-    out[1] = kManufacturer;
-    out[2] = kDevice;
-    out[3] = command;
-    return 4;
-}
+    /** The four bytes every message starts with, after F0. */
+    size_t PutHeader(uint8_t* out, size_t capacity, uint8_t command)
+    {
+        if(capacity < 4)
+            return 0;
+        out[0] = kSysexStart;
+        out[1] = kManufacturer;
+        out[2] = kDevice;
+        out[3] = command;
+        return 4;
+    }
 
 } // namespace
 
@@ -104,8 +104,7 @@ size_t EncodeIdentity(uint8_t* out,
     if(n == 0)
         return 0;
 
-    const int counts[]
-        = {effect_count, slot_count, knob_count, preset_count};
+    const int counts[] = {effect_count, slot_count, knob_count, preset_count};
 
     if(capacity < n + 1 + sizeof(counts) / sizeof(counts[0]) + 1)
         return 0;
@@ -118,10 +117,8 @@ size_t EncodeIdentity(uint8_t* out,
     return n;
 }
 
-size_t EncodeEffect(uint8_t*          out,
-                    size_t            capacity,
-                    int               id,
-                    const EffectDesc& desc)
+size_t
+EncodeEffect(uint8_t* out, size_t capacity, int id, const EffectDesc& desc)
 {
     if(!out)
         return 0;

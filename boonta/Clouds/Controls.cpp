@@ -27,7 +27,8 @@ static constexpr PedalState::Toggle kToggleMap[3] = {
  *  jack is an ADC channel and nothing more -- so expression has to earn its
  *  parameter by moving, the same way a parked pot does. Set to PARAM_LAST to
  *  ignore expression entirely. */
-static constexpr PedalState::Param kExpressionTarget = PedalState::PARAM_POSITION;
+static constexpr PedalState::Param kExpressionTarget
+    = PedalState::PARAM_POSITION;
 
 /** How long the freeze switch has to be down before it latches.
  *
@@ -126,10 +127,7 @@ void Controls::ReadKnobs()
 
     if(kExpressionTarget != PedalState::PARAM_LAST)
     {
-        if(Claim(exp_pickup_,
-                 exp,
-                 state_->GetParam(kExpressionTarget),
-                 false))
+        if(Claim(exp_pickup_, exp, state_->GetParam(kExpressionTarget), false))
             state_->SetParam(kExpressionTarget, exp);
     }
 }

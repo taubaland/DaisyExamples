@@ -35,8 +35,8 @@ struct ParamSpec
 struct EffectDesc
 {
     const char* name;
-    float       r, g, b;      /**< LED colour, wherever this effect appears */
-    const char* toggle;       /**< what the slot's toggle selects, for docs  */
+    float       r, g, b; /**< LED colour, wherever this effect appears */
+    const char* toggle;  /**< what the slot's toggle selects, for docs  */
     ParamSpec   param[6];
 };
 

@@ -7,8 +7,8 @@ static const struct
 {
     float r, g, b;
 } kQuantiseColour[PedalState::kQuantiseCount] = {
-    {0.6f, 0.6f, 1.0f}, // free:      pale blue
-    {0.1f, 1.0f, 0.3f}, // chromatic: green
+    {0.6f, 0.6f, 1.0f},  // free:      pale blue
+    {0.1f, 1.0f, 0.3f},  // chromatic: green
     {1.0f, 0.75f, 0.1f}, // harmonic:  gold
 };
 
@@ -117,8 +117,7 @@ void LedView::DrawBypassLed(const PedalState& state)
     float t = (clip_ - kClipStart) / (1.f - kClipStart);
     t       = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
 
-    hw_->SetFootSwitchLed(
-        DaisyBoonta::FOOTSWITCH_LED_2, 1.f, 1.f - t, 1.f - t);
+    hw_->SetFootSwitchLed(DaisyBoonta::FOOTSWITCH_LED_2, 1.f, 1.f - t, 1.f - t);
 }
 
 void LedView::DrawQuantiseLeds(const PedalState& state)

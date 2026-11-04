@@ -68,7 +68,9 @@ const EffectDesc& DriveEffect::Desc() const
 {
     static const EffectDesc kDesc = {
         "Drive",
-        1.0f, 1.0f, 0.0f, // gold
+        1.0f,
+        1.0f,
+        0.0f, // gold
         "gain range: low / mid / high",
         {{"gain"}, {"tone"}, {"character"}, {"bias"}, {"level"}, {"mix"}},
     };
@@ -84,17 +86,14 @@ void DriveEffect::Process(const float* params,
     // --- control rate: resolve the knobs into coefficients once per block ---
     const int range = toggle;
 
-    gain_ = kGainMin[range]
-            * powf(kGainMax[range] / kGainMin[range],
-                   params[0]);
+    gain_
+        = kGainMin[range] * powf(kGainMax[range] / kGainMin[range], params[0]);
 
     bias_      = (params[3] - 0.5f) * 2.f * kMaxBias;
     character_ = params[2];
 
-    const float tone_hz
-        = kToneMinHz
-          + params[1] * (kToneMaxHz - kToneMinHz);
-    tone_coeff_ = fminf(1.f, kTwoPi * tone_hz / sample_rate_);
+    const float tone_hz = kToneMinHz + params[1] * (kToneMaxHz - kToneMinHz);
+    tone_coeff_         = fminf(1.f, kTwoPi * tone_hz / sample_rate_);
 
     level_ = LevelGain(params[4]);
     mix_   = params[5];
@@ -117,12 +116,12 @@ float DriveEffect::ProcessSample(int channel, float in)
     if(character_ < 0.5f)
     {
         const float t = character_ * 2.f;
-        wet           = SoftShape(driven) + t * (HardShape(driven) - SoftShape(driven));
+        wet = SoftShape(driven) + t * (HardShape(driven) - SoftShape(driven));
     }
     else
     {
         const float t = (character_ - 0.5f) * 2.f;
-        wet           = HardShape(driven) + t * (FoldShape(driven) - HardShape(driven));
+        wet = HardShape(driven) + t * (FoldShape(driven) - HardShape(driven));
     }
 
     // Remove the offset the bias put in, plus whatever asymmetric clipping

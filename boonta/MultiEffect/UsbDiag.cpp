@@ -24,7 +24,8 @@ static USB_OTG_GlobalTypeDef* const kGlobal
 static volatile uint32_t* const kDevice = reinterpret_cast<volatile uint32_t*>(
     USB2_OTG_FS_PERIPH_BASE + USB_OTG_DEVICE_BASE);
 
-static constexpr uint32_t kDctlIndex = 1; /**< DCFG, DCTL, DSTS are the first three */
+static constexpr uint32_t kDctlIndex
+    = 1; /**< DCFG, DCTL, DSTS are the first three */
 static constexpr uint32_t kDstsIndex = 2;
 
 void EnableCrs()
@@ -43,8 +44,8 @@ void EnableCrs()
     // correct HSI48. The macro subtracts the one the counter needs.
     cfg.ReloadValue = __HAL_RCC_CRS_RELOADVALUE_CALCULATE(48000000U, 1000U);
 
-    cfg.ErrorLimitValue        = RCC_CRS_ERRORLIMIT_DEFAULT;
-    cfg.HSI48CalibrationValue  = RCC_CRS_HSI48CALIBRATION_DEFAULT;
+    cfg.ErrorLimitValue       = RCC_CRS_ERRORLIMIT_DEFAULT;
+    cfg.HSI48CalibrationValue = RCC_CRS_HSI48CALIBRATION_DEFAULT;
 
     HAL_RCCEx_CRSConfig(&cfg);
 }

@@ -63,10 +63,10 @@ void Storage::RequestPreset(int index)
 
 void Storage::SaveNow(const SavedState& now)
 {
-    SavedBank& bank        = store_.GetSettings();
-    bank.version           = SavedBank::kVersion;
-    bank.current           = current_;
-    bank.preset[current_]  = now;
+    SavedBank& bank       = store_.GetSettings();
+    bank.version          = SavedBank::kVersion;
+    bank.current          = current_;
+    bank.preset[current_] = now;
     store_.Save();
     last_saved_ = now;
     dirty_      = false;

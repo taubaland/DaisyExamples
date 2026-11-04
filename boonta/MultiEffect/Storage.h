@@ -63,11 +63,11 @@ class Storage
     SavedState last_saved_{};
     SavedState last_seen_{};
 
-    int      current_       = 0;
-    volatile int requested_ = -1;
-    uint32_t changed_at_ms_ = 0;
-    bool     dirty_         = false;
-    bool     restored_      = false;
+    int          current_       = 0;
+    volatile int requested_     = -1;
+    uint32_t     changed_at_ms_ = 0;
+    bool         dirty_         = false;
+    bool         restored_      = false;
 };
 
 #endif

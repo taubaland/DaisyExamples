@@ -24,8 +24,11 @@ class DriveEffect : public Effect
 
     void Init(float sample_rate) override;
 
-    void Process(const float* params, int toggle,
-                 float* left, float* right, size_t size) override;
+    void Process(const float* params,
+                 int          toggle,
+                 float*       left,
+                 float*       right,
+                 size_t       size) override;
 
     const EffectDesc& Desc() const override;
 

@@ -109,30 +109,30 @@ class Effect
     float sample_rate_;
 
     Grain    grain_[kMaxGrains];
-    uint32_t write_       = 0;    /**< buffer write head */
-    float    spawn_timer_ = 0.f;  /**< samples until the next grain */
+    uint32_t write_       = 0;   /**< buffer write head */
+    float    spawn_timer_ = 0.f; /**< samples until the next grain */
     uint32_t rng_         = 0x2545f491u;
 
     // --- block-rate parameters, resolved in UpdateParams() -------------
-    bool                 frozen_      = false;
-    PedalState::Quantise quantise_    = PedalState::QUANT_FREE;
-    float                lag_         = 4096.f; /**< TIME, in samples */
-    uint32_t             grain_len_   = 2048;
-    float                base_semis_  = 0.f;
-    float                seed_semis_  = 0.f;
-    float                seed_pan_    = 0.f;
-    float                scatter_     = 0.f; /**< start jitter, in samples */
-    float                interval_    = 1024.f;
-    float                randomness_  = 0.f;
-    float                shape_       = 0.5f;
-    float                feedback_    = 0.f;
-    float                mix_         = 0.f;
-    float                wet_gain_    = 1.f;
-    float                drive_       = 1.f;
-    bool                 lofi_        = false;
+    bool                 frozen_     = false;
+    PedalState::Quantise quantise_   = PedalState::QUANT_FREE;
+    float                lag_        = 4096.f; /**< TIME, in samples */
+    uint32_t             grain_len_  = 2048;
+    float                base_semis_ = 0.f;
+    float                seed_semis_ = 0.f;
+    float                seed_pan_   = 0.f;
+    float                scatter_    = 0.f; /**< start jitter, in samples */
+    float                interval_   = 1024.f;
+    float                randomness_ = 0.f;
+    float                shape_      = 0.5f;
+    float                feedback_   = 0.f;
+    float                mix_        = 0.f;
+    float                wet_gain_   = 1.f;
+    float                drive_      = 1.f;
+    bool                 lofi_       = false;
 
-    float fb_damp_l_ = 0.f;
-    float fb_damp_r_ = 0.f;
+    float fb_damp_l_     = 0.f;
+    float fb_damp_r_     = 0.f;
     float fb_damp_coeff_ = 1.f;
 
     /** Sample-and-hold state for the lo-fi recording path. */

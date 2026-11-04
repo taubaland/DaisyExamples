@@ -45,8 +45,8 @@ void Check(bool ok, const char* what)
 /** Peak of a block, and a NaN/inf check in the same pass. */
 struct BlockStats
 {
-    float peak    = 0.f;
-    bool  finite  = true;
+    float peak   = 0.f;
+    bool  finite = true;
 };
 
 /** Run `blocks` blocks of `in_l`/`in_r` through the effect and report what
@@ -378,11 +378,12 @@ void TestPitchTracks()
 
     const float ratio = static_cast<float>(up) / static_cast<float>(unity);
     Check(ratio > 1.8f && ratio < 2.2f, "+1 octave roughly doubles the pitch");
-    std::printf("      zero crossings over 500 blocks: unity %d, +1 oct %d "
-                "(ratio %.2f)\n",
-                unity,
-                up,
-                static_cast<double>(ratio));
+    std::printf(
+        "      zero crossings over 500 blocks: unity %d, +1 oct %d "
+        "(ratio %.2f)\n",
+        unity,
+        up,
+        static_cast<double>(ratio));
 }
 } // namespace
 
