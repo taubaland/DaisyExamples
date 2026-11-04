@@ -1,6 +1,8 @@
 # Project Name
 TARGET = torus
 
+APP_TYPE=BOOT_SRAM
+
 # Library Locations
 LIBDAISY_DIR = ../../libDaisy
 STMLIB_DIR = ../../stmlib
