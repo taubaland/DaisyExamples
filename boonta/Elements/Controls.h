@@ -1,0 +1,125 @@
+#pragma once
+#ifndef BOONTA_CONTROLS_H
+#define BOONTA_CONTROLS_H
+
+#include "daisy_boonta.h"
+#include "PedalState.h"
+
+/** Controller.
+ *
+ *  The only place that touches input hardware. It reads knobs, toggles,
+ *  footswitches and expression, turns them into intent (gate held, page
+ *  changed, geometry set to 0.6) and writes that intent into the model. It
+ *  never drives an LED and it never processes a sample.
+ *
+ *  Call Process() exactly once per audio callback: DaisyBoonta initialises its
+ *  AnalogControl smoothing filters with AudioCallbackRate(), so calling at any
+ *  other rate detunes the knob smoothing.
+ *
+ *  ## Sharing the model with a MIDI controller
+ *
+ *  A pot writes its parameter every block, so without something to stop it a
+ *  value sent over MIDI would last exactly one block. The rule here is that a
+ *  control gives way the moment anything else writes its parameter, and takes
+ *  it back the moment it is actually moved.
+ *
+ *  Noticing the first half needs no plumbing between the two controllers at
+ *  all: each control remembers the value it last wrote, and if the model no
+ *  longer holds that value then somebody else wrote it. That generalises for
+ *  free -- MIDI today, preset recall tomorrow -- and costs one float compare
+ *  per control. Taking it back has to mean real movement rather than mere
+ *  disagreement, because a parked pot is almost always pointing somewhere
+ *  other than where its parameter now is.
+ *
+ *  ## Pages
+ *
+ *  The same rule is what makes paging the knobs safe. Six pots stand in for
+ *  eighteen parameters, so after a page change every pot is pointing at a
+ *  value that belongs to the parameter it has just left. Turning the page
+ *  therefore parks all six, exactly as if MIDI had written them: nothing
+ *  jumps, and each knob picks its new parameter up when it is turned to
+ *  within reach of it. There is one Pickup per parameter rather than per
+ *  pot, so coming back to a page finds its knobs as they were left.
+ */
+class Controls
+{
+  public:
+    Controls()
+    : hw_(nullptr),
+      state_(nullptr),
+      gate_latched_(false),
+      gate_hold_fired_(false),
+      toggles_seeded_(false),
+      restored_(false),
+      first_block_(true),
+      page_seen_(0)
+    {
+    }
+
+    /** \param restored  true when the model was filled from saved state
+     *                  before this call. Nothing is then claimed from the
+     *                  panel at boot: every knob is parked, as if something
+     *                  else had written its parameter, and takes it back by
+     *                  being turned to within reach of the saved value. The
+     *                  toggles likewise keep the saved position until they are
+     *                  flipped. */
+    void Init(daisy::DaisyBoonta* hw, PedalState* state, bool restored = false);
+
+    /** Read every input and update the model. Audio-callback context. */
+    void Process();
+
+  private:
+    /** One continuous control's claim on its parameter. */
+    struct Pickup
+    {
+        float wrote  = 0.f; /**< the value this control last wrote */
+        float anchor = 0.f; /**< where it stood when it was parked  */
+        bool  live   = false;
+        bool  seeded = false;
+    };
+
+    void ReadKnobs();
+    void ReadToggles();
+    void ReadFootswitches();
+    void ReadSelects();
+
+    /** Should this control write its parameter this block?
+     *
+     *  \param pu            the control's pickup state
+     *  \param value         what the control reads now
+     *  \param current       what the model holds for the parameter
+     *  \param claim_at_boot true for the panel pots, which own the model
+     *                       until something takes it from them; false for
+     *                       expression, which has to be moved before it
+     *                       counts -- an unplugged jack is still an ADC
+     *                       channel reading *something*, and that something
+     *                       would otherwise pin its parameter forever.
+     */
+    bool Claim(Pickup& pu, float value, float current, bool claim_at_boot);
+
+    daisy::DaisyBoonta* hw_;
+    PedalState*         state_;
+
+    /** Gate footswitch state machine. `gate_latched_` survives the release;
+     *  `gate_hold_fired_` records that the current press has already crossed
+     *  the long-hold threshold, so it only toggles the latch once however
+     *  long the switch is held down. */
+    bool gate_latched_;
+    bool gate_hold_fired_;
+
+    Pickup param_pickup_[PedalState::PARAM_LAST];
+    Pickup exp_pickup_;
+
+    /** Toggles are discrete, so "has it moved" is just "is it where it was"
+     *  and no anchor or threshold is needed. */
+    PedalState::TogglePos toggle_seen_[3];
+    bool                  toggles_seeded_;
+    bool                  restored_;
+
+    /** True for the first Process() only: the one block in which the page
+     *  under the knobs may claim its parameters outright. */
+    bool first_block_;
+    int  page_seen_;
+};
+
+#endif
