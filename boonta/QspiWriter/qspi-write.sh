@@ -11,10 +11,11 @@
 # openocd. See QspiWriter.cpp for why a target-side writer is the only way into
 # QSPI on this board.
 #
-# Needs, as every route onto this board does, the Daisy bootloader in internal
-# flash and some valid app already in QSPI -- the writer gets loaded by
-# catching the bootloader's handover. ../NewEffectDuino/flash.sh boot installs
-# the bootloader.
+# Needs the Daisy bootloader in internal flash if the image is to start at
+# power-on (../NewEffectDuino/flash.sh boot, or `make boot` in a firmware
+# folder). The writer itself does not need it: with a valid app in QSPI it is
+# loaded by catching the bootloader's handover, and otherwise (blank QSPI, no
+# bootloader) it is started directly. QSPI_BARE=1 forces the direct start.
 
 set -e
 
