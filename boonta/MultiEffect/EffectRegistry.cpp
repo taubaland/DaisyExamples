@@ -3,6 +3,7 @@
 #include "DriveEffect.h"
 #include "EqEffect.h"
 #include "ReverbEffect.h"
+#include "RnboEffects.h"
 
 namespace
 {
@@ -10,11 +11,21 @@ EqEffect     eq;
 DriveEffect  drive;
 ReverbEffect reverb;
 
-/** Indexed by effects::Id, so the order of this array *is* the id. */
+/** Indexed by effects::Id, so the order of this array *is* the id.
+ *
+ *  The RNBO entries are function calls rather than addresses because each patch
+ *  lives in a translation unit of its own -- one export per unit is what lets
+ *  three of them coexist, so this file cannot see their types. Each returns a
+ *  file-static, so there is nothing here that can fail or come back null. */
 Effect* const kEffects[effects::ID_LAST] = {
     &eq,     // ID_EQ
     &drive,  // ID_DRIVE
     &reverb, // ID_REVERB
+#ifdef BOONTA_RNBO
+    RnboPitchshifter(), // ID_PITCH
+    RnboOctaver(),      // ID_OCTAVER
+    RnboFreezer(),      // ID_FREEZER
+#endif
 };
 } // namespace
 

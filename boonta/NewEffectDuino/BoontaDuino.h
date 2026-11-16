@@ -97,7 +97,6 @@ class BoontaDuino
 
     void WriteRelayInput(bool on);
     void WriteRelayOutput(bool on);
-    void WriteRelayBypass(bool on);
 
     daisy::Switch switches[SW_LAST];
 

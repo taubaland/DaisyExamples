@@ -39,11 +39,19 @@ class Controls
       state_(nullptr),
       freeze_latched_(false),
       freeze_hold_fired_(false),
-      toggles_seeded_(false)
+      toggles_seeded_(false),
+      restored_(false)
     {
     }
 
-    void Init(daisy::DaisyBoonta* hw, PedalState* state);
+    /** \param restored  true when the model was filled from saved state
+     *                  before this call. Nothing is then claimed from the
+     *                  panel at boot: every knob is parked, as if something
+     *                  else had written its parameter, and takes it back by
+     *                  being turned to within reach of the saved value. The
+     *                  toggles likewise keep the saved position until they are
+     *                  flipped. */
+    void Init(daisy::DaisyBoonta* hw, PedalState* state, bool restored = false);
 
     /** Read every input and update the model. Audio-callback context. */
     void Process();
@@ -94,6 +102,7 @@ class Controls
      *  and no anchor or threshold is needed. */
     PedalState::TogglePos toggle_seen_[3];
     bool                  toggles_seeded_;
+    bool                  restored_;
 };
 
 #endif

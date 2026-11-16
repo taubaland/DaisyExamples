@@ -9,6 +9,7 @@ Effect.cpp \
 LedView.cpp \
 MidiControl.cpp \
 PedalState.cpp \
+Persist.cpp \
 UsbDiag.cpp
 
 # Local headers

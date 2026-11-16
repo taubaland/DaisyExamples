@@ -46,9 +46,11 @@ static constexpr uint8_t kKnobPins[BoontaDuino::KNOB_LAST] = {
 
 static constexpr uint8_t kExpressionPin = PC0; // D15
 
+// Two relays, each through a 2N7002: K1 on D22 gates the DAC into the output
+// buffers, K2 on D23 gates the input jack into the ADC. Both energised is the
+// pedal in circuit. D24 (PA1) drives nothing on the board.
 static constexpr uint8_t kRelayOutputPin = PA5; // D22
-static constexpr uint8_t kRelayBypassPin = PA4; // D23
-static constexpr uint8_t kRelayInputPin  = PA1; // D24
+static constexpr uint8_t kRelayInputPin  = PA4; // D23
 
 // --- LEDs ------------------------------------------------------------------
 //
@@ -90,7 +92,6 @@ void BoontaDuino::Init(float control_rate)
     expression_.Init(kExpressionPin, control_rate);
 
     pinMode(kRelayOutputPin, OUTPUT);
-    pinMode(kRelayBypassPin, OUTPUT);
     pinMode(kRelayInputPin, OUTPUT);
 
     led_driver_.Init(kLedDriverAddress, led_buffer_a, led_buffer_b);
@@ -183,9 +184,4 @@ void BoontaDuino::WriteRelayInput(bool on)
 void BoontaDuino::WriteRelayOutput(bool on)
 {
     digitalWrite(kRelayOutputPin, on ? HIGH : LOW);
-}
-
-void BoontaDuino::WriteRelayBypass(bool on)
-{
-    digitalWrite(kRelayBypassPin, on ? HIGH : LOW);
 }

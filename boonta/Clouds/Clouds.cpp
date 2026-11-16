@@ -37,6 +37,7 @@
 #include "LedView.h"
 #include "MidiControl.h"
 #include "PedalState.h"
+#include "Persist.h"
 #include "UsbDiag.h"
 
 using namespace daisy;
@@ -46,6 +47,7 @@ static DaisyBoonta hw;
 static PedalState  state;
 static Controls    controls;
 static MidiControl midi;
+static Persist     persist(hw.seed.qspi);
 static LedView     view;
 static Effect      effect;
 
@@ -139,7 +141,12 @@ int main(void)
     // clears two megabytes of SDRAM.
     midi.Init(&hw, &state);
 
-    controls.Init(&hw, &state);
+    // Saved state goes into the model before the panel is read, so that
+    // Controls can hand it the knobs only once they have been turned to
+    // within reach of it.
+    const bool restored = persist.Init(&state);
+
+    controls.Init(&hw, &state, restored);
     view.Init(&hw);
     effect.Init(hw.AudioSampleRate());
 
@@ -158,6 +165,9 @@ int main(void)
     while(1)
     {
         view.Update(state);
+
+        // Flash writes block, so they live here and not in the callback.
+        persist.Update(System::GetNow());
 
         // Undo the PHY clock gating libDaisy's suspend callback leaves behind;
         // without this the USB data path stays dead after any host suspend.

@@ -92,6 +92,50 @@ class PedalState
     void NextMode() { SetMode(mode_ + 1); }
     void PrevMode() { SetMode(mode_ - 1); }
 
+    // --- what survives a power cycle -------------------------------------
+
+    /** The part of the model that is worth keeping across a power cycle: the
+     *  knob values, the toggle positions and the playback mode. Not bypass, which
+     *  always boots out of circuit, not freeze, and not telemetry.
+     *
+     *  Plain data with no padding, so two of them compare field by field and
+     *  a stored one can be checked before it is believed. The magic number
+     *  keeps one firmware from picking up another's settings, since they all
+     *  share one place in flash. */
+    struct Saved
+    {
+        uint32_t magic;
+        float    param[PARAM_LAST];
+        uint8_t  toggle[TOGGLE_LAST];
+        uint8_t  mode;
+
+        bool operator==(const Saved& o) const
+        {
+            if(magic != o.magic || mode != o.mode)
+                return false;
+            for(int i = 0; i < PARAM_LAST; i++)
+                if(param[i] != o.param[i])
+                    return false;
+            for(int i = 0; i < TOGGLE_LAST; i++)
+                if(toggle[i] != o.toggle[i])
+                    return false;
+            return true;
+        }
+        bool operator!=(const Saved& o) const { return !(*this == o); }
+    };
+
+    static constexpr uint32_t kSavedMagic = 0x434C4F55u;
+
+    /** The current state, in storable form. */
+    Saved Capture() const;
+
+    /** Take stored state back. Returns false, and changes nothing, unless
+     *  every field is believable: right magic, every value a number in range,
+     *  every position one that exists. Flash that has been erased, half
+     *  written or written by something else must not be able to put the
+     *  pedal in a state nobody chose. */
+    bool Restore(const Saved& saved);
+
     // --- written by the DSP (telemetry; see the class comment) ----------
     void SetOutputLevel(float peak) { output_level_ = peak; }
 

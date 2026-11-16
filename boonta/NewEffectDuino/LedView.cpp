@@ -86,7 +86,6 @@ void LedView::DriveRelays(const PedalState& state)
 
     hw_->WriteRelayInput(engage);
     hw_->WriteRelayOutput(engage);
-    hw_->WriteRelayBypass(!engage);
 
     relays_engaged_ = engage;
     relays_known_   = true;

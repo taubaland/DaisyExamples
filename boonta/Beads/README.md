@@ -144,10 +144,12 @@ value sent over MIDI would last exactly one block. The rule, in
   remembers the value it last wrote, and if the model no longer holds that
   value then somebody else wrote it. It generalises for free — MIDI today,
   preset recall tomorrow — and costs one float compare per control.
-- **It takes the parameter back when it is actually moved**, by 2% of travel
-  from where it was standing when it was parked. Movement rather than mere
-  disagreement, because a parked pot is almost always pointing somewhere
-  other than where its parameter now is.
+- **It takes the parameter back when it is turned to within 10% of it.**
+  A displaced knob does nothing until it has moved at least 2% of travel
+  *and* is within 10% of travel of the value the parameter now holds. Then it
+  picks the parameter up and tracks it continuously, so the sound never
+  jumps. The 2% is what stops a knob parked near a MIDI value taking it
+  straight back.
 
 Toggles are discrete, so they need no threshold: the switch writes when it
 changes position and not otherwise. Bypass and the quantise buttons are edge
@@ -198,6 +200,7 @@ streams, not the rate, that eventually hurts.
 
 | File | Role |
 |------|------|
+| `Persist.h/.cpp` | Controller — saves and restores the model in QSPI flash |
 | `PedalState.h/.cpp` | Model — params, freeze, quantisation, telemetry |
 | `Controls.h/.cpp` | Controller — knob table, toggle table, freeze machine, the pickup rule |
 | `MidiControl.h/.cpp` | Controller — USB and DIN MIDI into the same model |
@@ -214,6 +217,32 @@ callback so the LEDs can meter and warn. They are telemetry, not control —
 nothing reads them back into the DSP — and the writes happen in `Beads.cpp`
 rather than inside `Effect`, so the dependency stays visible and `Effect`
 still only ever reads the model.
+
+## Saved state
+
+`Persist.h/.cpp` keeps the model across a power cycle. It watches
+`PedalState::Capture()`; when that has stood unchanged for two seconds it
+writes it to one 4 KB sector of the QSPI flash, seven megabytes in, using
+libDaisy's `PersistentStorage`. No two writes are closer than ten seconds,
+because flash wears per erase. The write blocks for tens of milliseconds, so
+it happens from the main loop and never the audio callback; the callback
+keeps running because under BOOT_SRAM nothing it executes comes from the flash.
+
+Saved: knobs, toggle positions and the pitch quantiser setting. Not saved: bypass, which always
+boots out of circuit, and freeze.
+
+At boot `PedalState::Restore()` validates what it reads (magic number, every
+value a number in 0 to 1, every position one that exists) and refuses the lot
+if anything is off, so erased, half-written or another firmware's flash starts
+the pedal from defaults. Each firmware has its own magic number.
+
+A restored model is handed to `Controls::Init(..., restored = true)`, which
+parks every knob exactly as if MIDI had written it: the knob takes its
+parameter back by being turned within 10% of the saved value. Toggles keep
+their saved position until flipped.
+
+Host tests cover capture, restore, and refusal of bad data. The flash write
+itself needs the board and **has not been run on one**.
 
 ## Tests
 

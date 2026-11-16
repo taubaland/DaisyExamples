@@ -385,6 +385,85 @@ void TestPitchTracks()
         up,
         static_cast<double>(ratio));
 }
+
+// --- what survives a power cycle ---------------------------------------------
+
+void TestSavedStateRoundTrip()
+{
+    PedalState a;
+    a.SetParam(PedalState::PARAM_MIX, 0.8f);
+    a.SetParam(PedalState::PARAM_PITCH, 0.25f);
+    a.SetToggle(PedalState::TOGGLE_FEEDBACK, PedalState::POS_HIGH);
+    a.SetMode(PedalState::MODE_DELAY);
+    a.SetBypass(false);
+    a.SetFreeze(true);
+
+    const PedalState::Saved saved = a.Capture();
+
+    PedalState b;
+    Check(b.Restore(saved), "a captured state restores");
+    Check(b.Capture() == saved, "and captures back identical");
+    Check(b.GetParam(PedalState::PARAM_MIX) == 0.8f, "knob values come back");
+    Check(b.GetToggle(PedalState::TOGGLE_FEEDBACK) == PedalState::POS_HIGH,
+          "toggle positions come back");
+    Check(b.GetMode() == PedalState::MODE_DELAY, "the mode comes back");
+    Check(b.IsBypassed(), "bypass is not restored: it always boots out of circuit");
+    Check(!b.IsFrozen(), "freeze is not restored");
+}
+
+void TestSavedStateIsChecked()
+{
+    PedalState a;
+    a.SetParam(PedalState::PARAM_MIX, 0.6f);
+    const PedalState::Saved good = a.Capture();
+
+    PedalState b;
+    const PedalState::Saved before = b.Capture();
+
+    // Each of these has to be refused whole, leaving the model untouched.
+    PedalState::Saved bad = good;
+    bad.magic ^= 1u;
+    Check(!b.Restore(bad) && b.Capture() == before, "wrong magic is refused");
+
+    bad          = good;
+    bad.param[0] = 1.5f;
+    Check(!b.Restore(bad) && b.Capture() == before, "a value above 1 is refused");
+
+    bad          = good;
+    bad.param[1] = -0.1f;
+    Check(!b.Restore(bad) && b.Capture() == before, "a value below 0 is refused");
+
+    bad          = good;
+    bad.param[2] = std::nanf("");
+    Check(!b.Restore(bad) && b.Capture() == before, "NaN is refused");
+
+    bad           = good;
+    bad.toggle[0] = 3;
+    Check(!b.Restore(bad) && b.Capture() == before,
+          "a toggle position that does not exist is refused");
+
+    bad      = good;
+    bad.mode = static_cast<uint8_t>(PedalState::kModeCount);
+    Check(!b.Restore(bad) && b.Capture() == before,
+          "a mode that does not exist is refused");
+
+    // What erased flash looks like.
+    PedalState::Saved erased;
+    for(size_t i = 0; i < sizeof(erased); i++)
+        reinterpret_cast<uint8_t*>(&erased)[i] = 0xFF;
+    Check(!b.Restore(erased) && b.Capture() == before,
+          "erased flash is refused");
+}
+
+void TestCaptureIsStable()
+{
+    // Persist writes when Capture() changes, so it must not change by itself.
+    PedalState a;
+    a.SetParam(PedalState::PARAM_SIZE, 7.f); // out of range on purpose
+    Check(a.Capture() == a.Capture(), "capture is repeatable");
+    Check(a.Capture().param[PedalState::PARAM_SIZE] == 1.f,
+          "and clamps a stray value into range");
+}
 } // namespace
 
 int main()
@@ -396,6 +475,9 @@ int main()
     TestUnfrozenDecaysToSilence();
     TestEveryModeAndKnob();
     TestPitchTracks();
+    TestSavedStateRoundTrip();
+    TestSavedStateIsChecked();
+    TestCaptureIsStable();
 
     if(failures == 0)
         std::printf("all checks passed\n");

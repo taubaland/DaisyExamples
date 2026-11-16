@@ -37,17 +37,27 @@ static constexpr PedalState::Param kExpressionTarget
  *  edge, so this is wall time from first contact. */
 static constexpr float kFreezeHoldMs = 700.f;
 
-/** How far a parked control has to move before it takes its parameter back.
+/** How close a parked control has to come to its parameter to take it back.
  *
- *  Two percent of travel. Comfortably above the ADC noise that survives
- *  DaisyBoonta's smoothing, and small enough that a deliberate nudge is
- *  enough -- you should not have to sweep a knob to reclaim it. Once a
- *  control is live it tracks continuously; this threshold only gates the
- *  handover. */
+ *  Ten percent of travel. A control that has been displaced -- by MIDI, or
+ *  anything else that wrote the parameter -- stays out of the way until the
+ *  knob is turned to within this distance of the value the parameter now
+ *  holds, then picks it up and tracks it continuously. The parameter never
+ *  jumps: it only ever starts following the knob from a point the knob is
+ *  already close to. */
+static constexpr float kCatchWindow = 0.10f;
+
+/** How far a parked control must also have moved since it was displaced.
+ *
+ *  Two percent of travel, above the ADC noise that survives DaisyBoonta's
+ *  smoothing. Without it a knob that happened to be parked within the catch
+ *  window of a MIDI value would take that value straight back on the next
+ *  block, and MIDI could never move such a parameter. */
 static constexpr float kTakeoverDelta = 0.02f;
 
-void Controls::Init(DaisyBoonta* hw, PedalState* state)
+void Controls::Init(DaisyBoonta* hw, PedalState* state, bool restored)
 {
+    restored_          = restored;
     hw_                = hw;
     state_             = state;
     freeze_latched_    = false;
@@ -100,7 +110,11 @@ bool Controls::Claim(Pickup& pu, float value, float current, bool claim_at_boot)
     if(!pu.live)
     {
         const float moved = value - pu.anchor;
-        if((moved < 0.f ? -moved : moved) < kTakeoverDelta)
+        const float off   = value - current;
+
+        // Has to have been turned, and has to have arrived near the value.
+        if((moved < 0.f ? -moved : moved) < kTakeoverDelta
+           || (off < 0.f ? -off : off) > kCatchWindow)
             return false;
 
         pu.live = true;
@@ -118,7 +132,7 @@ void Controls::ReadKnobs()
             = hw_->GetKnobValue(static_cast<DaisyBoonta::Knob>(i));
         const PedalState::Param p = kKnobToParam[i];
 
-        if(Claim(knob_pickup_[i], value, state_->GetParam(p), true))
+        if(Claim(knob_pickup_[i], value, state_->GetParam(p), !restored_))
             state_->SetParam(p, value);
     }
 
@@ -148,8 +162,17 @@ void Controls::ReadToggles()
         }
 
         // Write only when the switch itself has moved, so a position sent
-        // over MIDI stands until somebody flips it back.
-        if(!toggles_seeded_ || mapped != toggle_seen_[i])
+        // over MIDI stands until somebody flips it back. The first read is
+        // the exception: it records where the switch is, and writes it only
+        // if nothing was restored from saved state. A restored toggle then
+        // stands until the switch is moved, the same as a restored knob.
+        if(!toggles_seeded_)
+        {
+            toggle_seen_[i] = mapped;
+            if(!restored_)
+                state_->SetToggle(kToggleMap[i], mapped);
+        }
+        else if(mapped != toggle_seen_[i])
         {
             toggle_seen_[i] = mapped;
             state_->SetToggle(kToggleMap[i], mapped);

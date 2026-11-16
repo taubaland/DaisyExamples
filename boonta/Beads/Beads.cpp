@@ -36,6 +36,7 @@
 #include "LedView.h"
 #include "MidiControl.h"
 #include "PedalState.h"
+#include "Persist.h"
 #include "UsbDiag.h"
 
 using namespace daisy;
@@ -45,6 +46,7 @@ static DaisyBoonta hw;
 static PedalState  state;
 static Controls    controls;
 static MidiControl midi;
+static Persist     persist(hw.seed.qspi);
 static LedView     view;
 static Effect      effect;
 
@@ -92,6 +94,12 @@ volatile uint32_t profile_reset = 0;
 // and the level the recording path saw, which the view uses as a meter and a
 // clip indicator. Writing them here rather than from inside Effect keeps the
 // dependency visible: the DSP still only reads the model.
+/* TEMPORARY relay / input diagnostic over gdb. Not for commit.
+ * relay_force < 0 -> LedView in charge; else bit0 = D22, bit1 = D23. */
+volatile int32_t  relay_force    = -1;
+volatile float    dbg_in_peak    = 0.f;
+volatile uint32_t dbg_peak_reset = 0;
+
 static void AudioCallback(AudioHandle::InputBuffer  in,
                           AudioHandle::OutputBuffer out,
                           size_t                    size)
@@ -106,6 +114,14 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
     float in_peak = 0.f;
     state.SetOutputLevel(effect.Process(state, in, out, size, &in_peak));
     state.SetInputPeak(in_peak);
+
+    if(dbg_peak_reset)
+    {
+        dbg_peak_reset = 0;
+        dbg_in_peak    = 0.f;
+    }
+    if(in_peak > dbg_in_peak)
+        dbg_in_peak = in_peak;
 
 #ifdef PROFILE_CPU
     load_meter.OnBlockEnd();
@@ -142,7 +158,12 @@ int main(void)
     // clears four megabytes of SDRAM.
     midi.Init(&hw, &state);
 
-    controls.Init(&hw, &state);
+    // Saved state goes into the model before the panel is read, so that
+    // Controls can hand it the knobs only once they have been turned to
+    // within reach of it.
+    const bool restored = persist.Init(&state);
+
+    controls.Init(&hw, &state, restored);
     view.Init(&hw);
     effect.Init(hw.AudioSampleRate());
 
@@ -161,6 +182,15 @@ int main(void)
     while(1)
     {
         view.Update(state);
+
+        // Flash writes block, so they live here and not in the callback.
+        persist.Update(System::GetNow());
+
+        if(relay_force >= 0)
+        {
+            hw.relay_output.Write(relay_force & 1);
+            hw.relay_input.Write((relay_force >> 1) & 1);
+        }
 
         // Undo the PHY clock gating libDaisy's suspend callback leaves behind;
         // without this the USB data path stays dead after any host suspend.

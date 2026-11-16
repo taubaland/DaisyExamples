@@ -8,7 +8,7 @@
 /** View.
  *
  *  The only place that touches output hardware: the two footswitch RGB LEDs,
- *  the three select RGB LEDs and the three bypass relays. It reads the model
+ *  the three select RGB LEDs and the two bypass relays. It reads the model
  *  and never writes it, so re-skinning the pedal can never change its
  *  behaviour.
  *

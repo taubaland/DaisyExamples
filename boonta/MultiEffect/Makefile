@@ -21,9 +21,40 @@ UsbDiag.cpp
 # Local headers
 C_INCLUDES += -I.
 
+# The RNBO patches. Point at the directory the exports sit in, one
+# subdirectory per patch:
+#
+#   make RNBO_DIR=/d/Projects/rnbo
+#
+# They go in together or not at all. Dropping one would renumber the effect ids
+# after it and every saved preset would come back as the wrong effect, so the
+# list below is the build's contract -- adding a patch means appending to it,
+# never inserting. Each needs an adapter of its own naming its knobs; see
+# RnboPitchshifter.cpp for the shape of one.
+RNBO_PATCHES = pitchshifter octaver freezer
+
+# RNBO_NOTHROW because the default platform throws and this builds
+# -fno-exceptions; RNBO_USE_FLOAT32 because otherwise a SampleValue is a double,
+# which costs both arithmetic and a conversion pass over every block;
+# RNBO_USECUSTOMALLOCATOR because the patches' buffers do not fit in the heap
+# and RnboHeap.cpp puts them in SDRAM instead. See RnboEffect.h for the rest.
+ifneq ($(RNBO_DIR),)
+# Each export's own directory, for its rnbo.<name>.cpp ...
+C_INCLUDES += $(foreach p,$(RNBO_PATCHES),-I$(RNBO_DIR)/$(p))
+# ... and one copy of the RNBO library, which every export carries a
+# byte-identical duplicate of. Taking it from one of them keeps a single
+# definition of the library types, which is what lets the linker fold the
+# three patches' shared machinery into one.
+RNBO_LIB = $(RNBO_DIR)/$(firstword $(RNBO_PATCHES))/rnbo
+C_INCLUDES += -I$(RNBO_LIB) -I$(RNBO_LIB)/common -I$(RNBO_LIB)/src
+C_DEFS += -DRNBO_NOTHROW -DRNBO_USE_FLOAT32 -DRNBO_USECUSTOMALLOCATOR -DBOONTA_RNBO
+CPP_SOURCES += RnboHeap.cpp
+CPP_SOURCES += RnboPitchshifter.cpp RnboOctaver.cpp RnboFreezer.cpp
+endif
+
 # Uncomment to time the audio callback into a global an ST-Link can read. Costs
 # a couple of microseconds a block and is off by default; see the README.
-# C_DEFS += -DPROFILE_CPU
+C_DEFS += -DPROFILE_CPU
 
 # Uncomment to record peak levels either side of the DSP into a global an
 # ST-Link can read, for finding out which side of the codec a signal problem is
@@ -56,6 +87,30 @@ DAISYSP_DIR = ../../DaisySP
 # Core location, and generic Makefile.
 SYSTEM_FILES_DIR = $(LIBDAISY_DIR)/core
 include $(SYSTEM_FILES_DIR)/Makefile
+
+# Force unsuffixed floating-point literals to float in the RNBO translation
+# units only:
+#
+#   make RNBO_DIR=/d/Projects/rnbo RNBO_SINGLE_PRECISION=1
+#
+# RNBO_USE_FLOAT32 makes `number` a float, but the generated code still writes
+# its constants as doubles -- a grain window comes out as
+# `0.5 * (1 - rnbo_cos(6.28318530717958647692 * x))`, and that literal promotes
+# the whole expression, so rnbo_cos picks its double overload and every sample
+# goes through libm. Measured at 10.75% of the freezer's time. This flag makes
+# those literals float so the float overloads win.
+#
+# It goes on all three patches or none. The RNBO library is instantiated in
+# every one of them and its member functions have vague linkage, so the linker
+# folds the three copies into one -- and if they were not compiled alike, which
+# copy survives would be arbitrary. That is also why this cannot be narrowed to
+# the freezer alone.
+#
+# Off by default because it changes the meaning of every constant in those
+# files, not only the ones that wanted to be float.
+ifeq ($(RNBO_SINGLE_PRECISION),1)
+$(BUILD_DIR)/RnboPitchshifter.o $(BUILD_DIR)/RnboOctaver.o $(BUILD_DIR)/RnboFreezer.o: CPPFLAGS += -fsingle-precision-constant
+endif
 
 # Host-side DSP tests. Deliberately after the include above so that libDaisy's
 # `all` stays the default goal.

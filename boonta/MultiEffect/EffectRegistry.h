@@ -27,6 +27,14 @@ enum Id
     ID_EQ     = 0,
     ID_DRIVE  = 1,
     ID_REVERB = 2,
+#ifdef BOONTA_RNBO
+    /** The RNBO patches, present or absent as a group -- never one without the
+     *  others, or removing a patch would renumber the ones after it and every
+     *  saved preset would come back as the wrong effect. */
+    ID_PITCH   = 3,
+    ID_OCTAVER = 4,
+    ID_FREEZER = 5,
+#endif
     ID_LAST,
 };
 

@@ -9,6 +9,7 @@ Effect.cpp \
 LedView.cpp \
 MidiControl.cpp \
 PedalState.cpp \
+Persist.cpp \
 Reverb.cpp \
 UsbDiag.cpp
 

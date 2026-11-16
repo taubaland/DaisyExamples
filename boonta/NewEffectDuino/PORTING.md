@@ -404,8 +404,7 @@ pin table in `libDaisy/src/daisy_seed.h`. The Arduino variant is the generic
 | Expression | D15 | PC0 |
 | Pot 1..6 | D16..D21 | PA3, PB1, PA7, PA6, PC1, PC4 |
 | Relay out | D22 | PA5 |
-| Relay bypass | D23 | PA4 |
-| Relay in | D24 | PA1 |
+| Relay in | D23 | PA4 |
 
 Each three-way toggle is two pins read together, not one analog pin.
 
