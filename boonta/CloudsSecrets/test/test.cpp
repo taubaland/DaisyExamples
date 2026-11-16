@@ -427,8 +427,8 @@ Tail RunTail(Effect& fx, PedalState& state, int blocks, int tail, Gen gen)
             if(!std::isfinite(ol[i]) || !std::isfinite(or_[i]))
                 t.finite = false;
 
-            t.peak = std::fmax(
-                t.peak, std::fmax(std::fabs(ol[i]), std::fabs(or_[i])));
+            t.peak = std::fmax(t.peak,
+                               std::fmax(std::fabs(ol[i]), std::fabs(or_[i])));
 
             if(b >= blocks - tail)
             {
@@ -520,9 +520,10 @@ void TestSpectralPassesAudio()
     const Tail t = RunTail(fx, state, 600, 100, sine);
 
     // 0.5 amplitude sine has an RMS of 0.354.
-    std::printf("      neutral spectral: rms %.3f (input 0.354), %d crossings\n",
-                static_cast<double>(t.rms),
-                t.crossings);
+    std::printf(
+        "      neutral spectral: rms %.3f (input 0.354), %d crossings\n",
+        static_cast<double>(t.rms),
+        t.crossings);
 
     Check(t.finite, "spectral output is finite");
     Check(t.rms > 0.354f * 0.6f && t.rms < 0.354f * 1.5f,
@@ -719,7 +720,8 @@ void TestSavedStateRoundTrip()
     Check(b.GetToggle(PedalState::TOGGLE_FEEDBACK) == PedalState::POS_HIGH,
           "toggle positions come back");
     Check(b.GetMode() == PedalState::MODE_SPECTRAL, "the mode comes back");
-    Check(b.IsBypassed(), "bypass is not restored: it always boots out of circuit");
+    Check(b.IsBypassed(),
+          "bypass is not restored: it always boots out of circuit");
     Check(!b.IsFrozen(), "freeze is not restored");
 }
 
@@ -729,7 +731,7 @@ void TestSavedStateIsChecked()
     a.SetParam(PedalState::PARAM_MIX, 0.6f);
     const PedalState::Saved good = a.Capture();
 
-    PedalState b;
+    PedalState              b;
     const PedalState::Saved before = b.Capture();
 
     // Each of these has to be refused whole, leaving the model untouched.
@@ -739,11 +741,13 @@ void TestSavedStateIsChecked()
 
     bad          = good;
     bad.param[0] = 1.5f;
-    Check(!b.Restore(bad) && b.Capture() == before, "a value above 1 is refused");
+    Check(!b.Restore(bad) && b.Capture() == before,
+          "a value above 1 is refused");
 
     bad          = good;
     bad.param[1] = -0.1f;
-    Check(!b.Restore(bad) && b.Capture() == before, "a value below 0 is refused");
+    Check(!b.Restore(bad) && b.Capture() == before,
+          "a value below 0 is refused");
 
     bad          = good;
     bad.param[2] = std::nanf("");

@@ -33,8 +33,7 @@ void Load(daisy::QSPIHandle& qspi)
 
     const Header* const header
         = static_cast<const Header*>(qspi.GetData(kFlashOffset));
-    const uint8_t* const payload
-        = reinterpret_cast<const uint8_t*>(header + 1);
+    const uint8_t* const payload = reinterpret_cast<const uint8_t*>(header + 1);
 
     // Size before checksum: an erased chip reads 0xFFFFFFFF, and that is
     // not a length to go and hash.

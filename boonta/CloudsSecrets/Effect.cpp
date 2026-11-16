@@ -481,7 +481,7 @@ float Effect::Process(const PedalState&   state,
     // rate actually travel through the buffer.
     const float lag_delta = (frozen_ ? 0.f : 1.f) - play_rate_;
     const bool  moving    = (mode_ == PedalState::MODE_STRETCH
-                          || mode_ == PedalState::MODE_DELAY);
+                         || mode_ == PedalState::MODE_DELAY);
     const bool  spectral  = (mode_ == PedalState::MODE_SPECTRAL);
 
     float peak = 0.f;

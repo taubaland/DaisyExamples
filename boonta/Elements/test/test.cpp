@@ -20,7 +20,7 @@
 
 namespace
 {
-constexpr size_t kBlock          = 32;   // what the firmware runs
+constexpr size_t kBlock           = 32;   // what the firmware runs
 constexpr int    kBlocksPerSecond = 1000; // 32 kHz / 32
 
 int failures = 0;
@@ -51,7 +51,7 @@ struct Rig
 
     Rig()
     {
-        part   = static_cast<elements::Part*>(
+        part = static_cast<elements::Part*>(
             std::calloc(1, sizeof(elements::Part)));
         reverb = static_cast<uint16_t*>(std::calloc(32768, sizeof(uint16_t)));
         uint32_t seed[3] = {1, 2, 3};
@@ -112,8 +112,7 @@ struct Plucks
     {
         const size_t k = n % period;
         const float  t = static_cast<float>(k) / 32000.f;
-        return 0.3f * std::exp(-t * 6.f)
-               * std::sin(6.2831853f * 196.f * t);
+        return 0.3f * std::exp(-t * 6.f) * std::sin(6.2831853f * 196.f * t);
     }
 };
 
@@ -176,8 +175,8 @@ void TestModel()
     PedalState::Saved bad = saved;
     bad.magic             = 0x434C4F55u; // Clouds' settings, same flash sector
     Check(!c.Restore(bad), "restore refuses another firmware's settings");
-    bad            = saved;
-    bad.param[3]   = std::nanf("");
+    bad          = saved;
+    bad.param[3] = std::nanf("");
     Check(!c.Restore(bad), "restore refuses NaN");
     bad      = saved;
     bad.page = 3;
@@ -223,7 +222,7 @@ void TestSweep()
     // every routing, with the input driving it hard. The DSP limits its own
     // output; what this is looking for is the mapping layer handing it an
     // index one past the end of a table.
-    static const float kEnds[] = {0.f, 0.5f, 1.f};
+    static const float                 kEnds[] = {0.f, 0.5f, 1.f};
     static const PedalState::TogglePos kPos[]
         = {PedalState::POS_LOW, PedalState::POS_MID, PedalState::POS_HIGH};
 
@@ -294,7 +293,7 @@ void TestPitchKnobIsQuantised()
         double sum = 0.0;
         rig.Run(100, [&](size_t) { return 0.f; });
         // Fingerprint the next stretch of output.
-        float       l[kBlock], r[kBlock], ol[kBlock], orr[kBlock];
+        float        l[kBlock], r[kBlock], ol[kBlock], orr[kBlock];
         const float* in[2]  = {l, r};
         float*       out[2] = {ol, orr};
         for(size_t i = 0; i < kBlock; i++)
@@ -405,10 +404,11 @@ void TestInputKnobAtZeroIsSilent()
  *  report an octave up -- decaying from a pluck. */
 float GuitarSample(float hz, size_t n, float decay_per_s = 3.f)
 {
-    const float t   = static_cast<float>(n) / 32000.f;
-    const float amp = std::exp(-t * decay_per_s);
-    static const float h[] = {0.5f, 1.0f, 0.8f, 0.5f, 0.35f, 0.25f, 0.15f, 0.1f};
-    float              v   = 0.f;
+    const float        t   = static_cast<float>(n) / 32000.f;
+    const float        amp = std::exp(-t * decay_per_s);
+    static const float h[]
+        = {0.5f, 1.0f, 0.8f, 0.5f, 0.35f, 0.25f, 0.15f, 0.1f};
+    float v = 0.f;
     for(int k = 0; k < 8; k++)
     {
         const float f = hz * static_cast<float>(k + 1);
@@ -438,12 +438,18 @@ void TestPitchTracker()
     // it has to land exactly.
     struct
     {
-        float hz;
-        int   midi;
+        float       hz;
+        int         midi;
         const char* name;
-    } notes[] = {{82.41f, 40, "E2"},   {110.0f, 45, "A2"},  {146.83f, 50, "D3"},
-                 {196.0f, 55, "G3"},   {246.94f, 59, "B3"}, {329.63f, 64, "E4"},
-                 {440.0f, 69, "A4"},   {587.33f, 74, "D5"}, {783.99f, 79, "G5"},
+    } notes[] = {{82.41f, 40, "E2"},
+                 {110.0f, 45, "A2"},
+                 {146.83f, 50, "D3"},
+                 {196.0f, 55, "G3"},
+                 {246.94f, 59, "B3"},
+                 {329.63f, 64, "E4"},
+                 {440.0f, 69, "A4"},
+                 {587.33f, 74, "D5"},
+                 {783.99f, 79, "G5"},
                  {987.77f, 83, "B5"}};
 
     for(const auto& n : notes)
@@ -451,8 +457,12 @@ void TestPitchTracker()
         PitchTracker tr;
         const int    got = Settle(tr, n.hz, 150);
         char         msg[64];
-        std::snprintf(msg, sizeof msg, "tracker: %s -> %d (want %d)", n.name,
-                      got, n.midi);
+        std::snprintf(msg,
+                      sizeof msg,
+                      "tracker: %s -> %d (want %d)",
+                      n.name,
+                      got,
+                      n.midi);
         Check(got == n.midi, msg);
         Check(tr.Locked(), "tracker: locked on a clean note");
     }
@@ -461,9 +471,9 @@ void TestPitchTracker()
     {
         PitchTracker tr;
         Settle(tr, 196.f, 150);
-        const int  held = tr.Note();
-        float      buf[32];
-        uint32_t   rng = 12345;
+        const int held = tr.Note();
+        float     buf[32];
+        uint32_t  rng = 12345;
         for(int b = 0; b < 300; b++)
         {
             for(float& v : buf)
@@ -493,16 +503,24 @@ void TestPitchTracker()
         {
             for(float& v : buf)
             {
-                const float t   = static_cast<float>(n++) / 32000.f;
-                const float hz  = 220.f * std::exp2(0.4f / 12.f * std::sin(6.2831853f * 5.5f * t));
+                const float t  = static_cast<float>(n++) / 32000.f;
+                const float hz = 220.f
+                                 * std::exp2(0.4f / 12.f
+                                             * std::sin(6.2831853f * 5.5f * t));
                 phase += hz / 32000.0;
-                v = 0.2f * std::sin(6.2831853f * static_cast<float>(std::fmod(phase, 1.0)))
-                    + 0.15f * std::sin(6.2831853f * static_cast<float>(std::fmod(2 * phase, 1.0)));
+                v = 0.2f
+                        * std::sin(6.2831853f
+                                   * static_cast<float>(std::fmod(phase, 1.0)))
+                    + 0.15f
+                          * std::sin(
+                              6.2831853f
+                              * static_cast<float>(std::fmod(2 * phase, 1.0)));
             }
             tr.Process(buf, 32);
         }
         Check(tr.Note() == 57, "tracker: 40 cent vibrato stays on A3");
-        Check(tr.Generation() <= 2, "tracker: vibrato does not make it chatter");
+        Check(tr.Generation() <= 2,
+              "tracker: vibrato does not make it chatter");
     }
 
     // A change of note is followed, within a few tens of milliseconds.
@@ -521,7 +539,8 @@ void TestFollowMode()
     // through the tracker and see what note it is playing.
     auto played = [](float hz, int transpose_semitones) {
         Rig rig;
-        rig.state.SetToggle(PedalState::TOGGLE_TRIGGER, PedalState::TRIGGER_INPUT);
+        rig.state.SetToggle(PedalState::TOGGLE_TRIGGER,
+                            PedalState::TRIGGER_INPUT);
         rig.state.SetToggle(PedalState::TOGGLE_MODEL, PedalState::MODEL_STRING);
         rig.state.SetParam(PedalState::PARAM_STRIKE, 0.f);
         rig.state.SetParam(PedalState::PARAM_PITCH,
@@ -551,11 +570,17 @@ void TestFollowMode()
     const int a2 = played(110.f, 0);
     const int a3 = played(220.f, 0);
     std::printf("follow: guitar A2 -> %d, A3 -> %d, A2 up an octave -> %d\n",
-                a2, a3, played(110.f, 12));
+                a2,
+                a3,
+                played(110.f, 12));
     Check(a2 == 45, "follow: the resonator is tuned to the guitar's A2");
     Check(a3 == 57, "follow: and to its A3");
     Check(played(110.f, 12) == 57, "follow: the Pitch knob transposes");
-    { const int dn = played(220.f, -12); std::printf("follow: A3 down an octave -> %d\n", dn); Check(dn == 45, "follow: and down (A3 guitar to A2)"); }
+    {
+        const int dn = played(220.f, -12);
+        std::printf("follow: A3 down an octave -> %d\n", dn);
+        Check(dn == 45, "follow: and down (A3 guitar to A2)");
+    }
 }
 
 } // namespace

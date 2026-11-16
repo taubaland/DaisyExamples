@@ -86,7 +86,7 @@ class PitchTracker
                 have_half_ = true;
                 continue;
             }
-            have_half_  = false;
+            have_half_    = false;
             const float y = 0.25f * last_in_ + 0.5f * half_ + 0.25f * in[i];
             last_in_      = in[i];
 
@@ -130,8 +130,8 @@ class PitchTracker
     float Clarity() const { return clarity_; }
 
   private:
-    static constexpr size_t kBuffer    = 1024; /**< power of two, > window + lag */
-    static constexpr int    kStartNote = 48;   /**< C3, before anything is heard */
+    static constexpr size_t kBuffer = 1024; /**< power of two, > window + lag */
+    static constexpr int kStartNote = 48;   /**< C3, before anything is heard */
 
     float At(size_t age) const // age 0 = newest
     {
@@ -186,8 +186,9 @@ class PitchTracker
         for(size_t j = 0; j < kWindow; j++)
             acf += a[j] * b[j];
 
-        const float m = energy_ + (sq_[start - lag_ + kWindow] - sq_[start - lag_]);
-        nsdf_[lag_]   = m > 1e-12f ? 2.f * acf / m : 0.f;
+        const float m
+            = energy_ + (sq_[start - lag_ + kWindow] - sq_[start - lag_]);
+        nsdf_[lag_] = m > 1e-12f ? 2.f * acf / m : 0.f;
 
         if(++lag_ > kLastLag)
         {
@@ -252,8 +253,8 @@ class PitchTracker
         }
 
         // Parabolic interpolation around the peak.
-        const size_t t     = peak_at[pick];
-        const float  y0    = nsdf[t - 1], y1 = nsdf[t], y2 = nsdf[t + 1];
+        const size_t t  = peak_at[pick];
+        const float  y0 = nsdf[t - 1], y1 = nsdf[t], y2 = nsdf[t + 1];
         const float  d     = y0 - 2.f * y1 + y2;
         float        shift = d != 0.f ? 0.5f * (y0 - y2) / d : 0.f;
         if(shift > 0.5f)
@@ -293,8 +294,8 @@ class PitchTracker
     }
 
     float    buf_[kBuffer];
-    float    x_[kSpan];        /**< snapshot being analysed */
-    float    sq_[kSpan + 1];   /**< running sum of squares of x_ */
+    float    x_[kSpan];      /**< snapshot being analysed */
+    float    sq_[kSpan + 1]; /**< running sum of squares of x_ */
     float    nsdf_[kMaxLag + 2];
     float    energy_;
     size_t   lag_;

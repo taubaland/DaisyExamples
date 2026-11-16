@@ -81,13 +81,17 @@ class PedalState
     /** TOGGLE_TRIGGER. The footswitch and MIDI notes always play; this is
      *  what else does. */
     static constexpr TogglePos TRIGGER_MANUAL = POS_LOW; /**< nothing else */
-    static constexpr TogglePos TRIGGER_INPUT  = POS_MID; /**< the input's own attacks */
-    static constexpr TogglePos TRIGGER_DRONE  = POS_HIGH; /**< the gate is simply held */
+    static constexpr TogglePos TRIGGER_INPUT
+        = POS_MID; /**< the input's own attacks */
+    static constexpr TogglePos TRIGGER_DRONE
+        = POS_HIGH; /**< the gate is simply held */
 
     /** TOGGLE_ROUTE: where the input jack goes. */
-    static constexpr TogglePos ROUTE_STRIKE = POS_LOW; /**< straight into the resonator */
-    static constexpr TogglePos ROUTE_BOTH   = POS_MID;
-    static constexpr TogglePos ROUTE_BLOW   = POS_HIGH; /**< through the diffuser first */
+    static constexpr TogglePos ROUTE_STRIKE
+        = POS_LOW; /**< straight into the resonator */
+    static constexpr TogglePos ROUTE_BOTH = POS_MID;
+    static constexpr TogglePos ROUTE_BLOW
+        = POS_HIGH; /**< through the diffuser first */
 
     /** TOGGLE_MODEL: which resonator. */
     static constexpr TogglePos MODEL_MODAL   = POS_LOW;

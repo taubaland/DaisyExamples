@@ -105,8 +105,7 @@ void Effect::UpdatePatch(const PedalState& state)
 {
     for(int i = 0; i < PedalState::PARAM_LAST; i++)
     {
-        const float target
-            = state.GetParam(static_cast<PedalState::Param>(i));
+        const float target = state.GetParam(static_cast<PedalState::Param>(i));
         smoothed_[i] += kSmooth * (target - smoothed_[i]);
     }
 
@@ -123,12 +122,12 @@ void Effect::UpdatePatch(const PedalState& state)
     patch->exciter_blow_level     = p(PedalState::PARAM_BLOW);
     patch->exciter_strike_level   = p(PedalState::PARAM_STRIKE);
 
-    patch->exciter_bow_timbre    = p(PedalState::PARAM_BOW_TIMBRE);
-    patch->exciter_blow_meta     = p(PedalState::PARAM_FLOW);
-    patch->exciter_blow_timbre   = p(PedalState::PARAM_BLOW_TIMBRE);
-    patch->exciter_strike_meta   = p(PedalState::PARAM_MALLET);
-    patch->exciter_strike_timbre = Clamp(
-        smoothed_[PedalState::PARAM_STRIKE_TIMBRE], 0.f, 0.995f);
+    patch->exciter_bow_timbre  = p(PedalState::PARAM_BOW_TIMBRE);
+    patch->exciter_blow_meta   = p(PedalState::PARAM_FLOW);
+    patch->exciter_blow_timbre = p(PedalState::PARAM_BLOW_TIMBRE);
+    patch->exciter_strike_meta = p(PedalState::PARAM_MALLET);
+    patch->exciter_strike_timbre
+        = Clamp(smoothed_[PedalState::PARAM_STRIKE_TIMBRE], 0.f, 0.995f);
 
     patch->resonator_geometry   = p(PedalState::PARAM_GEOMETRY);
     patch->resonator_brightness = p(PedalState::PARAM_BRIGHTNESS);
@@ -292,11 +291,11 @@ float Effect::ProcessChunk(const PedalState& state,
     // Following the guitar, the Pitch knob stops being an absolute note and
     // becomes a transposition: centre is unison, and its four octaves of
     // travel run two down to two up.
-    const float base
-        = follow ? static_cast<float>(tracker_.Note())
-                       + static_cast<float>(pitch_semitones_)
-                       - 0.5f * kPitchRange
-                 : kPitchBase + static_cast<float>(pitch_semitones_);
+    const float base = follow
+                           ? static_cast<float>(tracker_.Note())
+                                 + static_cast<float>(pitch_semitones_)
+                                 - 0.5f * kPitchRange
+                           : kPitchBase + static_cast<float>(pitch_semitones_);
     perf.note = base
                 + (smoothed_[PedalState::PARAM_FINE] - 0.5f) * 2.f * kFineRange
                 + state.NoteOffset() + state.Bend() * kBendRange;
@@ -317,8 +316,8 @@ float Effect::ProcessChunk(const PedalState& state,
             = Clamp(stmlib::SoftLimit(aux[i] * kOutputGain), -1.f, 1.f);
         const float r
             = Clamp(stmlib::SoftLimit(main[i] * kOutputGain), -1.f, 1.f);
-        out_l[i]      = l;
-        out_r[i]      = r;
+        out_l[i] = l;
+        out_r[i] = r;
 
         const float al = l < 0.f ? -l : l;
         const float ar = r < 0.f ? -r : r;
@@ -357,12 +356,8 @@ float Effect::Process(PedalState&         state,
     while(done < size)
     {
         const size_t n = size - done > kChunk ? kChunk : size - done;
-        const float  p = ProcessChunk(state,
-                                      in[0] + done,
-                                      in[1] + done,
-                                      out[0] + done,
-                                      out[1] + done,
-                                      n);
+        const float  p = ProcessChunk(
+            state, in[0] + done, in[1] + done, out[0] + done, out[1] + done, n);
         if(p > peak)
             peak = p;
         done += n;

@@ -407,7 +407,8 @@ void TestSavedStateRoundTrip()
     Check(b.GetToggle(PedalState::TOGGLE_FEEDBACK) == PedalState::POS_HIGH,
           "toggle positions come back");
     Check(b.GetMode() == PedalState::MODE_DELAY, "the mode comes back");
-    Check(b.IsBypassed(), "bypass is not restored: it always boots out of circuit");
+    Check(b.IsBypassed(),
+          "bypass is not restored: it always boots out of circuit");
     Check(!b.IsFrozen(), "freeze is not restored");
 }
 
@@ -417,7 +418,7 @@ void TestSavedStateIsChecked()
     a.SetParam(PedalState::PARAM_MIX, 0.6f);
     const PedalState::Saved good = a.Capture();
 
-    PedalState b;
+    PedalState              b;
     const PedalState::Saved before = b.Capture();
 
     // Each of these has to be refused whole, leaving the model untouched.
@@ -427,11 +428,13 @@ void TestSavedStateIsChecked()
 
     bad          = good;
     bad.param[0] = 1.5f;
-    Check(!b.Restore(bad) && b.Capture() == before, "a value above 1 is refused");
+    Check(!b.Restore(bad) && b.Capture() == before,
+          "a value above 1 is refused");
 
     bad          = good;
     bad.param[1] = -0.1f;
-    Check(!b.Restore(bad) && b.Capture() == before, "a value below 0 is refused");
+    Check(!b.Restore(bad) && b.Capture() == before,
+          "a value below 0 is refused");
 
     bad          = good;
     bad.param[2] = std::nanf("");

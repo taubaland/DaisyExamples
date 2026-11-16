@@ -7,11 +7,11 @@
 
 namespace
 {
-constexpr int      N    = Spectral::kFftSize;
-constexpr int      K    = Spectral::kBins;
-constexpr int      HOP  = Spectral::kHop;
-constexpr int      S    = Spectral::kSlots;
-constexpr uint32_t RING = 4096;
+constexpr int      N     = Spectral::kFftSize;
+constexpr int      K     = Spectral::kBins;
+constexpr int      HOP   = Spectral::kHop;
+constexpr int      S     = Spectral::kSlots;
+constexpr uint32_t RING  = 4096;
 constexpr uint32_t RMASK = RING - 1;
 
 constexpr float kPi    = 3.14159265358979f;
@@ -160,7 +160,9 @@ inline float FastSin(float x)
     const float x2 = x * x;
     return x
            * (1.f
-              + x2 * (-0.16666667f + x2 * (0.0083333333f - x2 * 0.00019841270f)));
+              + x2
+                    * (-0.16666667f
+                       + x2 * (0.0083333333f - x2 * 0.00019841270f)));
 }
 
 /** Wrap to [-pi, pi]. */
@@ -191,7 +193,8 @@ inline float FastAtan2(float y, float x)
 
     const float a = mn / mx;
     const float s = a * a;
-    float       r = ((-0.0464964749f * s + 0.15931422f) * s - 0.327622764f) * s * a + a;
+    float       r
+        = ((-0.0464964749f * s + 0.15931422f) * s - 0.327622764f) * s * a + a;
 
     if(ay > ax)
         r = 1.5707963f - r;
@@ -212,7 +215,7 @@ union FloatBits
 inline float FastLog2(float x)
 {
     FloatBits v;
-    v.f = x;
+    v.f         = x;
     const int e = static_cast<int>((v.u >> 23) & 255u) - 127;
 
     FloatBits m;
@@ -233,7 +236,10 @@ inline float FastExp2(float x)
     const float f  = x - fl;
 
     const float p
-        = 1.f + f * (0.69314718f + f * (0.24022651f + f * (0.05550411f + f * 0.00961813f)));
+        = 1.f
+          + f
+                * (0.69314718f
+                   + f * (0.24022651f + f * (0.05550411f + f * 0.00961813f)));
 
     FloatBits v;
     v.u = static_cast<uint32_t>(static_cast<int>(fl) + 127) << 23;
@@ -316,10 +322,10 @@ void Spectral::Service(size_t block)
             if(write_count_ < next_frame_)
                 return;
 
-            frame_end_  = next_frame_;
+            frame_end_ = next_frame_;
             next_frame_ += HOP;
-            job_        = params_;
-            stage_      = STAGE_FFT;
+            job_   = params_;
+            stage_ = STAGE_FFT;
         }
 
         RunStage();
@@ -395,8 +401,9 @@ void Spectral::StageAnalyse()
             float f = om;
             if(have_prev_)
             {
-                const float d = Wrap(phase - g_store.prev_phase[c][k] - om * HOP);
-                f             = om + d * (1.f / HOP);
+                const float d
+                    = Wrap(phase - g_store.prev_phase[c][k] - om * HOP);
+                f = om + d * (1.f / HOP);
             }
 
             g_store.prev_phase[c][k] = phase;
@@ -408,8 +415,8 @@ void Spectral::StageAnalyse()
     have_prev_ = true;
 
     // POSITION picks which slot this frame is kept in.
-    float pos = job_.position;
-    pos       = pos < 0.f ? 0.f : (pos > 1.f ? 1.f : pos);
+    float pos      = job_.position;
+    pos            = pos < 0.f ? 0.f : (pos > 1.f ? 1.f : pos);
     const int slot = static_cast<int>(pos * (S - 1) + 0.5f);
 
     memcpy(g_store.slot_m[slot], g_store.an_m, sizeof(g_store.an_m));
@@ -423,8 +430,8 @@ void Spectral::StageMangle()
     // Live, unless frozen, in which case a point between two stored slots.
     // a_* is the working frame from here on; the remapping stages go back and
     // forth between a_* and b_*.
-    float(*m)[K] = g_store.a_m;
-    float(*f)[K] = g_store.a_f;
+    float(*m)[K]  = g_store.a_m;
+    float(*f)[K]  = g_store.a_f;
     float(*om)[K] = g_store.b_m;
     float(*of)[K] = g_store.b_f;
 
@@ -435,8 +442,8 @@ void Spectral::StageMangle()
     }
     else
     {
-        float pos = job_.position;
-        pos       = pos < 0.f ? 0.f : (pos > 1.f ? 1.f : pos);
+        float pos      = job_.position;
+        pos            = pos < 0.f ? 0.f : (pos > 1.f ? 1.f : pos);
         const float u  = pos * (S - 1);
         int         i0 = static_cast<int>(u);
         if(i0 > S - 2)
@@ -447,12 +454,10 @@ void Spectral::StageMangle()
         {
             for(int k = 0; k < K; k++)
             {
-                m[c][k] = Lerp(g_store.slot_m[i0][c][k],
-                               g_store.slot_m[i0 + 1][c][k],
-                               fr);
-                f[c][k] = Lerp(g_store.slot_f[i0][c][k],
-                               g_store.slot_f[i0 + 1][c][k],
-                               fr);
+                m[c][k] = Lerp(
+                    g_store.slot_m[i0][c][k], g_store.slot_m[i0 + 1][c][k], fr);
+                f[c][k] = Lerp(
+                    g_store.slot_f[i0][c][k], g_store.slot_f[i0 + 1][c][k], fr);
             }
         }
     }
@@ -462,7 +467,7 @@ void Spectral::StageMangle()
 
     if(t < -0.02f)
     {
-        const int shift = static_cast<int>(-t * (K / 2));
+        const int   shift   = static_cast<int>(-t * (K / 2));
         const float shift_f = static_cast<float>(shift) * Omega(1);
 
         for(int c = 0; c < 2; c++)
@@ -669,7 +674,7 @@ void Spectral::StageSynth()
             }
             if(jitter > 0.f)
                 ph += jitter * (RandF() * 2.f - 1.f);
-            ph = Wrap(ph);
+            ph                        = Wrap(ph);
             g_store.synth_phase[c][k] = ph;
 
             float s, co;

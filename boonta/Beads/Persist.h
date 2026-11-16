@@ -47,7 +47,11 @@ class Persist
 {
   public:
     explicit Persist(daisy::QSPIHandle& qspi)
-    : storage_(qspi), state_(nullptr), dirty_(false), changed_at_(0), saved_at_(0)
+    : storage_(qspi),
+      state_(nullptr),
+      dirty_(false),
+      changed_at_(0),
+      saved_at_(0)
     {
     }
 
@@ -61,11 +65,11 @@ class Persist
 
   private:
     daisy::PersistentStorage<PedalState::Saved> storage_;
-    PedalState*        state_;
-    PedalState::Saved  last_;
-    bool               dirty_;
-    uint32_t           changed_at_;
-    uint32_t           saved_at_;
+    PedalState*                                 state_;
+    PedalState::Saved                           last_;
+    bool                                        dirty_;
+    uint32_t                                    changed_at_;
+    uint32_t                                    saved_at_;
 };
 
 #endif

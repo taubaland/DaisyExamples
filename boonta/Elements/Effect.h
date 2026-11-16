@@ -99,11 +99,11 @@ class Effect
     float input_level_; /**< noise gate detector */
 
     // Input-driven gate.
-    float env_;         /**< fast peak follower */
-    float env_floor_;   /**< what the note in progress has decayed to */
+    float env_;       /**< fast peak follower */
+    float env_floor_; /**< what the note in progress has decayed to */
     bool  input_gate_;
-    int   holdoff_;     /**< chunks until another attack may retrigger */
-    int   retrigger_;   /**< chunks left of forced gate-low */
+    int   holdoff_;   /**< chunks until another attack may retrigger */
+    int   retrigger_; /**< chunks left of forced gate-low */
 
     /** Follows the guitar's pitch. Fed whenever the pedal is in circuit, so
      *  it already knows the note when the trigger toggle selects it. */

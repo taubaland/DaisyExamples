@@ -8,10 +8,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-// 
+//
 // See http://creativecommons.org/licenses/MIT/ for more information.
 //
 // -----------------------------------------------------------------------------
@@ -37,9 +37,8 @@
 #include "stmlib/stmlib.h"
 
 
-
-namespace elements {
-
+namespace elements
+{
 typedef uint8_t ResourceId;
 
 extern const int16_t* lookup_table_int16_table[];
@@ -53,28 +52,28 @@ extern const int16_t* sample_table[];
 extern const size_t* sample_boundary_table[];
 
 extern const int16_t lut_db_led_brightness[];
-extern const float lut_sine[];
-extern const float lut_approx_svf_gain[];
-extern const float lut_approx_svf_g[];
-extern const float lut_approx_svf_r[];
-extern const float lut_approx_svf_h[];
-extern const float lut_4_decades[];
-extern const float lut_accent_gain_coarse[];
-extern const float lut_accent_gain_fine[];
-extern const float lut_stiffness[];
-extern const float lut_env_increments[];
-extern const float lut_env_linear[];
-extern const float lut_env_expo[];
-extern const float lut_env_quartic[];
-extern const float lut_midi_to_f_high[];
-extern const float lut_midi_to_increment_high[];
-extern const float lut_midi_to_f_low[];
-extern const float lut_fm_frequency_quantizer[];
-extern const float lut_detune_quantizer[];
-extern const float lut_svf_shift[];
+extern const float   lut_sine[];
+extern const float   lut_approx_svf_gain[];
+extern const float   lut_approx_svf_g[];
+extern const float   lut_approx_svf_r[];
+extern const float   lut_approx_svf_h[];
+extern const float   lut_4_decades[];
+extern const float   lut_accent_gain_coarse[];
+extern const float   lut_accent_gain_fine[];
+extern const float   lut_stiffness[];
+extern const float   lut_env_increments[];
+extern const float   lut_env_linear[];
+extern const float   lut_env_expo[];
+extern const float   lut_env_quartic[];
+extern const float   lut_midi_to_f_high[];
+extern const float   lut_midi_to_increment_high[];
+extern const float   lut_midi_to_f_low[];
+extern const float   lut_fm_frequency_quantizer[];
+extern const float   lut_detune_quantizer[];
+extern const float   lut_svf_shift[];
 extern const int16_t smp_sample_data[];
 extern const int16_t smp_noise_sample[];
-extern const size_t smp_boundaries[];
+extern const size_t  smp_boundaries[];
 #define LUT_DB_LED_BRIGHTNESS 0
 #define LUT_DB_LED_BRIGHTNESS_SIZE 513
 #define LUT_SINE 0
@@ -122,6 +121,6 @@ extern const size_t smp_boundaries[];
 #define SMP_BOUNDARIES 0
 #define SMP_BOUNDARIES_SIZE 10
 
-}  // namespace elements
+} // namespace elements
 
-#endif  // ELEMENTS_RESOURCES_H_
+#endif // ELEMENTS_RESOURCES_H_

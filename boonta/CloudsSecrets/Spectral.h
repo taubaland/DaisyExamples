@@ -121,7 +121,7 @@ class Spectral
     int      stage_       = STAGE_IDLE;
     bool     have_prev_   = false;
     bool     lock_        = false; /**< this frame can use its own phases */
-    Params   job_;             /**< params snapshot for the frame in flight */
+    Params   job_; /**< params snapshot for the frame in flight */
 
     uint32_t rng_ = 0x2545F491u;
 };

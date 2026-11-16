@@ -45,12 +45,12 @@ using namespace daisy;
 
 static DaisyBoonta hw;
 
-static constexpr uint32_t kStepMs   = 3000;
-static constexpr float    kLevel    = 0.1f; // -20 dBFS
-static constexpr float    kFreqL    = 2000.f;
-static constexpr float    kFreqR    = 3000.f;
-static constexpr float    kTwoPi    = 6.28318530718f;
-static constexpr int      kSteps    = 4;
+static constexpr uint32_t kStepMs     = 3000;
+static constexpr float    kLevel      = 0.1f; // -20 dBFS
+static constexpr float    kFreqL      = 2000.f;
+static constexpr float    kFreqR      = 3000.f;
+static constexpr float    kTwoPi      = 6.28318530718f;
+static constexpr int      kSteps      = 4;
 static constexpr bool     kK1[kSteps] = {false, true, true, false};
 static constexpr bool     kK2[kSteps] = {false, true, false, true};
 
@@ -61,13 +61,12 @@ static float inc_r   = 0.f;
 
 // Input meter. Written by the audio callback, read and cleared by the main
 // loop at each step change; a torn read costs one inaccurate line, not a fault.
-static volatile float sum_l   = 0.f;
-static volatile float sum_r   = 0.f;
+static volatile float    sum_l = 0.f;
+static volatile float    sum_r = 0.f;
 static volatile uint32_t nsamp = 0;
 
-static void Audio(AudioHandle::InputBuffer  in,
-                  AudioHandle::OutputBuffer out,
-                  size_t                    size)
+static void
+Audio(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size)
 {
     float sl = 0.f, sr = 0.f;
     for(size_t i = 0; i < size; i++)
@@ -95,14 +94,10 @@ static void SetStep(int step)
     hw.relay_output.Write(kK1[step]);
     hw.relay_input.Write(kK2[step]);
 
-    hw.SetFootSwitchLed(DaisyBoonta::FOOTSWITCH_LED_1,
-                        0.f,
-                        kK1[step] ? 1.f : 0.f,
-                        0.f);
-    hw.SetFootSwitchLed(DaisyBoonta::FOOTSWITCH_LED_2,
-                        0.f,
-                        0.f,
-                        kK2[step] ? 1.f : 0.f);
+    hw.SetFootSwitchLed(
+        DaisyBoonta::FOOTSWITCH_LED_1, 0.f, kK1[step] ? 1.f : 0.f, 0.f);
+    hw.SetFootSwitchLed(
+        DaisyBoonta::FOOTSWITCH_LED_2, 0.f, 0.f, kK2[step] ? 1.f : 0.f);
     hw.UpdateLeds();
 }
 

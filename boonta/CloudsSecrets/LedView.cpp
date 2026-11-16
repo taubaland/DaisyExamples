@@ -7,9 +7,9 @@ static const struct
 {
     float r, g, b;
 } kModeColour[PedalState::kModeCount] = {
-    {0.8f, 0.1f, 1.0f}, // granular: violet
-    {0.0f, 0.9f, 0.7f}, // stretch:  teal
-    {1.0f, 0.5f, 0.0f}, // delay:    amber
+    {0.8f, 0.1f, 1.0f},   // granular: violet
+    {0.0f, 0.9f, 0.7f},   // stretch:  teal
+    {1.0f, 0.5f, 0.0f},   // delay:    amber
     {1.0f, 0.05f, 0.15f}, // spectral: crimson
 };
 
@@ -130,9 +130,10 @@ void LedView::DrawModeLeds(const PedalState& state)
     for(int i = 0; i < DaisyBoonta::SELECT_LED_LAST; i++)
     {
         // Which mode this LED stands for right now.
-        const int  mode     = alt ? i + 1 : i;
-        const bool shown    = alt || i == 0;
-        const bool selected = shown && mode == static_cast<int>(state.GetMode());
+        const int  mode  = alt ? i + 1 : i;
+        const bool shown = alt || i == 0;
+        const bool selected
+            = shown && mode == static_cast<int>(state.GetMode());
 
         if(!shown)
         {
