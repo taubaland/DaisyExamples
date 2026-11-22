@@ -12,14 +12,14 @@
 
 using namespace daisy;
 
-static constexpr size_t kTransferSize  = 16384;
-static constexpr size_t kMaxWavFiles   = 32;
+static constexpr size_t kTransferSize = 16384;
+static constexpr size_t kMaxWavFiles  = 32;
 
-static DaisyPod                  hw;
-static SdmmcHandler              sdcard;
-static FatFSInterface            fsi;
-static WavPlayer<kTransferSize>  player;
-static FileTable<kMaxWavFiles>   file_table;
+static DaisyPod                 hw;
+static SdmmcHandler             sdcard;
+static FatFSInterface           fsi;
+static WavPlayer<kTransferSize> player;
+static FileTable<kMaxWavFiles>  file_table;
 
 static size_t current_file_idx = 0;
 

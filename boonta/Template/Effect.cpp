@@ -7,7 +7,7 @@
 using namespace daisysp;
 
 /** Gain range per RANGE toggle position. */
-static constexpr float kDriveMin[3] = {1.f, 1.f, 4.f};  // low, mid, high
+static constexpr float kDriveMin[3] = {1.f, 1.f, 4.f}; // low, mid, high
 static constexpr float kDriveMax[3] = {8.f, 24.f, 80.f};
 
 /** Tone control sweep, in Hz. */
@@ -46,7 +46,8 @@ void Effect::Process(const PedalState&   state,
     }
 
     // --- control rate: resolve the model into coefficients once per block ---
-    const int range = static_cast<int>(state.GetToggle(PedalState::TOGGLE_RANGE));
+    const int range
+        = static_cast<int>(state.GetToggle(PedalState::TOGGLE_RANGE));
 
     drive_ = kDriveMin[range]
              + state.GetParam(PedalState::PARAM_DRIVE)

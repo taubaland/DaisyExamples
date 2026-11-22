@@ -12,8 +12,11 @@
 //
 // Six pots serve four pages, so a pot almost never matches the value the page
 // it just landed on is holding. Controls parks each knob until the pot sweeps
-// through the stored value; the page footswitch LED breathes until every knob
-// on the page has been picked up. See Controls.cpp.
+// through the stored value; the page footswitch LED breathes until something on
+// the page has actually been changed. See Controls.cpp.
+//
+// Settings live in QSPI flash and come back at power-on, so the knobs are parked
+// at boot too -- the saved values win, not the pots. See Storage.cpp.
 //
 // LEDs: the page footswitch shows the current page's colour -- teal EQ, gold
 // drive, purple reverb, white meta. The bypass footswitch is green in circuit
@@ -46,16 +49,21 @@
 #include "Chain.h"
 #include "Controls.h"
 #include "LedView.h"
+#include "MidiControl.h"
 #include "PedalState.h"
+#include "Storage.h"
+#include "UsbDiag.h"
 
 using namespace daisy;
 
 static DaisyBoonta hw;
 
-static PedalState state;
-static Controls   controls;
-static LedView    view;
-static Chain      chain;
+static PedalState  state;
+static Controls    controls;
+static LedView     view;
+static Chain       chain;
+static Storage     storage(hw.seed.qspi);
+static MidiControl midi;
 
 #ifdef PROFILE_CPU
 #include "util/CpuLoadMeter.h"
@@ -71,10 +79,10 @@ static CpuLoadMeter load_meter;
 
 static struct
 {
-    volatile uint32_t blocks;      /**< audio callbacks since boot */
-    volatile float    avg;         /**< smoothed load, 0 to 1      */
+    volatile uint32_t blocks; /**< audio callbacks since boot */
+    volatile float    avg;    /**< smoothed load, 0 to 1      */
     volatile float    min;
-    volatile float    max;         /**< worst block since boot     */
+    volatile float    max; /**< worst block since boot     */
     volatile float    sample_rate;
     volatile uint32_t block_size;
 } profile;
@@ -99,7 +107,8 @@ static struct
 
 static constexpr float kProbeDecay = 0.9995f;
 
-static inline void ProbePeak(volatile float& held, const float* buf, size_t size)
+static inline void
+ProbePeak(volatile float& held, const float* buf, size_t size)
 {
     float p = held * kProbeDecay;
     for(size_t i = 0; i < size; i++)
@@ -124,6 +133,7 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
 #endif
 
     controls.Process();
+    midi.Process();
     chain.Process(state, in, out, size);
 
 #ifdef PROBE_IO
@@ -146,6 +156,22 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
 int main(void)
 {
     hw.Init();
+
+    // Trim HSI48 before USB comes up. libDaisy points the USB clock at a
+    // free-running RC oscillator and never locks it to anything; the ROM DFU
+    // bootloader, which enumerates on this board where the app does not, does
+    // lock it. See UsbDiag.h.
+    usbdiag::EnableCrs();
+
+    // MIDI first. USB device enumeration is time-critical -- the host starts
+    // asking for descriptors as soon as the port is live -- and Storage::Init
+    // can block for a flash erase when it has to lay down a fresh bank.
+    midi.Init(&hw, &state);
+
+    // Settings next: Controls parks the knobs against whatever the model holds
+    // on its first pass, so the restore has to have happened by then or the
+    // pedal comes up on its defaults.
+    storage.Init(&state, &controls);
 
     // Note the block size is left where Init() put it. DaisyBoonta initialises
     // its AnalogControl smoothing filters from AudioCallbackRate(), so changing
@@ -170,6 +196,24 @@ int main(void)
     while(1)
     {
         view.Update(state);
+
+        // A program change only asks; the recall itself happens here, because
+        // it means writing the slot being left and that is a flash erase.
+        const int preset = midi.TakePresetRequest();
+        if(preset >= 0)
+            storage.RequestPreset(preset);
+
+        // Debounced, and a flash erase when it does fire -- main loop only.
+        storage.Update(state);
+
+        // Answer an editor that asked what this pedal is. Main loop because
+        // the reply is long and the transport blocks.
+        midi.ServiceSysex();
+
+        // Undo libDaisy's PHY clock gating, and sample the USB registers for
+        // the ST-Link. Cheap enough to leave in.
+        usbdiag::Service();
+
         System::Delay(1);
     }
 }

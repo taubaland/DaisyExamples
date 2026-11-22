@@ -49,11 +49,11 @@ struct BiquadCoeffs
     /** Low shelf. `slope` of 1 is the steepest shelf that stays monotonic. */
     void SetLowShelf(float sr, float freq, float gain_db, float slope)
     {
-        const float a  = powf(10.f, gain_db / 40.f);
-        const float w0 = Omega(sr, freq);
-        const float cs = cosf(w0);
-        const float alpha
-            = sinf(w0) * 0.5f * sqrtf((a + 1.f / a) * (1.f / slope - 1.f) + 2.f);
+        const float a     = powf(10.f, gain_db / 40.f);
+        const float w0    = Omega(sr, freq);
+        const float cs    = cosf(w0);
+        const float alpha = sinf(w0) * 0.5f
+                            * sqrtf((a + 1.f / a) * (1.f / slope - 1.f) + 2.f);
         const float beta = 2.f * sqrtf(a) * alpha;
 
         Normalise(a * ((a + 1.f) - (a - 1.f) * cs + beta),
@@ -67,11 +67,11 @@ struct BiquadCoeffs
     /** High shelf. */
     void SetHighShelf(float sr, float freq, float gain_db, float slope)
     {
-        const float a  = powf(10.f, gain_db / 40.f);
-        const float w0 = Omega(sr, freq);
-        const float cs = cosf(w0);
-        const float alpha
-            = sinf(w0) * 0.5f * sqrtf((a + 1.f / a) * (1.f / slope - 1.f) + 2.f);
+        const float a     = powf(10.f, gain_db / 40.f);
+        const float w0    = Omega(sr, freq);
+        const float cs    = cosf(w0);
+        const float alpha = sinf(w0) * 0.5f
+                            * sqrtf((a + 1.f / a) * (1.f / slope - 1.f) + 2.f);
         const float beta = 2.f * sqrtf(a) * alpha;
 
         Normalise(a * ((a + 1.f) + (a - 1.f) * cs + beta),
@@ -95,12 +95,8 @@ struct BiquadCoeffs
         return kBiquadTwoPi * freq / sr;
     }
 
-    void Normalise(float nb0,
-                   float nb1,
-                   float nb2,
-                   float na0,
-                   float na1,
-                   float na2)
+    void
+    Normalise(float nb0, float nb1, float nb2, float na0, float na1, float na2)
     {
         const float inv = 1.f / na0;
         b0              = nb0 * inv;

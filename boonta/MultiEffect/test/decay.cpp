@@ -19,8 +19,12 @@ int main()
 {
     const char* names[3] = {"room  ", "plate ", "cavern"};
 
-    printf("\nsize   time  charged  build   tail rms at 1/2/4/8/16 s        RT60\n");
-    printf("-------------------------------------------------------------------\n");
+    printf(
+        "\nsize   time  charged  build   tail rms at 1/2/4/8/16 s        "
+        "RT60\n");
+    printf(
+        "-------------------------------------------------------------------"
+        "\n");
 
     for(int pos = 0; pos < 3; pos++)
     {
@@ -37,32 +41,38 @@ int main()
             s.SetKnob(PedalState::PAGE_META, PedalState::META_OUT_LEVEL, 0.5f);
             s.SetKnob(PedalState::PAGE_META, PedalState::META_MIX, 1.f);
             s.SetKnob(PedalState::PAGE_META, PedalState::META_EQ_AMOUNT, 1.f);
-            s.SetKnob(PedalState::PAGE_META, PedalState::META_DRIVE_AMOUNT, 0.f);
-            s.SetKnob(PedalState::PAGE_META, PedalState::META_REVERB_AMOUNT, 1.f);
-            s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_TIME, time_knob);
+            s.SetKnob(
+                PedalState::PAGE_META, PedalState::META_DRIVE_AMOUNT, 0.f);
+            s.SetKnob(
+                PedalState::PAGE_META, PedalState::META_REVERB_AMOUNT, 1.f);
+            s.SetKnob(
+                PedalState::PAGE_REVERB, PedalState::REVERB_TIME, time_knob);
             s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_DAMPING, 0.f);
-            s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_DIFFUSION, 1.f);
+            s.SetKnob(
+                PedalState::PAGE_REVERB, PedalState::REVERB_DIFFUSION, 1.f);
             s.SetKnob(PedalState::PAGE_REVERB, PedalState::REVERB_MIX, 1.f);
-            s.SetToggle(PedalState::TOGGLE_REVERB_SIZE, (PedalState::TogglePos)pos);
+            s.SetToggle(PedalState::TOGGLE_REVERB_SIZE,
+                        (PedalState::TogglePos)pos);
 
             Chain chain;
             chain.Init(kSr);
 
-            const size_t kB = 48;
+            const size_t       kB = 48;
             std::vector<float> il(kB), ir(kB), ol(kB), orr(kB);
-            const float* in[2]  = {il.data(), ir.data()};
-            float*       out[2] = {ol.data(), orr.data()};
+            const float*       in[2]  = {il.data(), ir.data()};
+            float*             out[2] = {ol.data(), orr.data()};
 
             // Charge for 3 s with a sustained chord, tracking the peak.
-            double sumsq = 0;
-            size_t cnt = 0;
+            double sumsq      = 0;
+            size_t cnt        = 0;
             float  build_peak = 0.f;
-            size_t n = 0;
+            size_t n          = 0;
             for(; n < 144000; n += kB)
             {
                 for(size_t i = 0; i < kB; i++)
                 {
-                    il[i] = 0.7f * (Sine(n + i, 220.f) + Sine(n + i, 330.f)) * 0.5f;
+                    il[i] = 0.7f * (Sine(n + i, 220.f) + Sine(n + i, 330.f))
+                            * 0.5f;
                     ir[i] = il[i];
                 }
                 chain.Process(s, in, out, kB);
@@ -104,8 +114,8 @@ int main()
                 if(mi < 5 && k >= marks[mi] + 4800)
                 {
                     tail[mi] = wcnt ? (float)std::sqrt(wsum / wcnt) : 0.f;
-                    wsum = 0;
-                    wcnt = 0;
+                    wsum     = 0;
+                    wcnt     = 0;
                     mi++;
                 }
 
@@ -119,17 +129,22 @@ int main()
                 }
             }
 
-            printf("%s  %.1f  %7.4f  %5.2fx  %.4f %.4f %.4f %.4f %.4f  %6s\n",
-                   names[pos],
-                   time_knob,
-                   charged,
-                   build_peak / 0.7f,
-                   tail[0], tail[1], tail[2], tail[3], tail[4],
-                   rt60 < 0.f ? ">16 s" : [&] {
-                       static char b[16];
-                       snprintf(b, sizeof b, "%.1f s", rt60);
-                       return b;
-                   }());
+            printf(
+                "%s  %.1f  %7.4f  %5.2fx  %.4f %.4f %.4f %.4f %.4f  %6s\n",
+                names[pos],
+                time_knob,
+                charged,
+                build_peak / 0.7f,
+                tail[0],
+                tail[1],
+                tail[2],
+                tail[3],
+                tail[4],
+                rt60 < 0.f ? ">16 s" : [&] {
+                    static char b[16];
+                    snprintf(b, sizeof b, "%.1f s", rt60);
+                    return b;
+                }());
         }
     }
     printf("\n");
