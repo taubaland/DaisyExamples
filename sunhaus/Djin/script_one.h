@@ -61,7 +61,7 @@ class ScriptOne : public Script
             v.id     = i;
         }
         // Stagger the second voice of each buffer by half a slice.
-        const int half = (int)(LenSamples() * 0.5f);
+        const int half  = (int)(LenSamples() * 0.5f);
         voice_[1].delay = voice_[3].delay = half;
     }
 
@@ -125,8 +125,8 @@ class ScriptOne : public Script
             float l = 0.f, r = 0.f;
             for(int v = 0; v < kVoices; v++)
             {
-                Voice& vo = voice_[v];
-                const float s = Tick(vo);
+                Voice&      vo = voice_[v];
+                const float s  = Tick(vo);
                 l += s * vo.pan_l;
                 r += s * vo.pan_r;
             }
@@ -157,18 +157,18 @@ class ScriptOne : public Script
 
     struct Voice
     {
-        float* buf    = nullptr;
-        int    id     = 0;
-        int    delay  = 0;
-        bool   active = false;
+        float* buf     = nullptr;
+        int    id      = 0;
+        int    delay   = 0;
+        bool   active  = false;
         bool   stagger = false; /**< wait half a slice before the next one */
-        float  anchor = -1.f; // absolute buffer index of the region start
-        float  s_len  = 0.f;  // slice source length, samples
-        float  rate   = 1.f;
-        float  dir    = 1.f;
-        int    dur    = 0; // slice output length, samples
-        int    m      = 0; // output samples elapsed in the slice
-        float  pan_l  = 0.7f, pan_r = 0.7f;
+        float  anchor  = -1.f;  // absolute buffer index of the region start
+        float  s_len   = 0.f;   // slice source length, samples
+        float  rate    = 1.f;
+        float  dir     = 1.f;
+        int    dur     = 0; // slice output length, samples
+        int    m       = 0; // output samples elapsed in the slice
+        float  pan_l = 0.7f, pan_r = 0.7f;
         // two overlapping micro-grains
         float g_pos[2] = {0.f, 0.f};
         int   g_n[2]   = {0, 0};
@@ -196,7 +196,7 @@ class ScriptOne : public Script
 
     float Read(const float* b, float p) const
     {
-        p        = Wrap(p);
+        p              = Wrap(p);
         const int   i0 = (int)p;
         const float f  = p - i0;
         const int   i1 = i0 + 1 >= (int)kBufLen ? 0 : i0 + 1;
@@ -242,26 +242,29 @@ class ScriptOne : public Script
         v.m     = 0;
 
         // Choose where to grab from.
-        const float region = s + 2.f * kW;
-        const float min_age = region + kGuard;
-        const float max_age = (float)kBufLen - kGuard;
-        float       age;
+        const float  region  = s + 2.f * kW;
+        const float  min_age = region + kGuard;
+        const float  max_age = (float)kBufLen - kGuard;
+        float        age;
         const Voice& partner = voice_[(v.id + 2) % kVoices];
-        const float  cur_age = v.anchor < 0.f ? -1.f : Wrap((float)wi_ - v.anchor);
+        const float  cur_age
+            = v.anchor < 0.f ? -1.f : Wrap((float)wi_ - v.anchor);
 
         if(filled_ < (int)min_age)
             age = min_age; // buffer still filling: newest audio
         else if(partner.anchor >= 0.f && Rnd() < kLinkProb)
         {
-            age = Wrap((float)wi_ - partner.anchor) + (Rnd() * 2.f - 1.f) * 1000.f;
+            age = Wrap((float)wi_ - partner.anchor)
+                  + (Rnd() * 2.f - 1.f) * 1000.f;
         }
         else if(Rnd() < (float)a / kMainMax)
             age = min_age + Rnd() * (max_age - min_age);
-        else if(cur_age >= min_age && cur_age <= max_age && Rnd() >= kRefreshProb)
+        else if(cur_age >= min_age && cur_age <= max_age
+                && Rnd() >= kRefreshProb)
             age = cur_age;
         else
             age = min_age;
-        age = fminf(fmaxf(age, min_age), max_age);
+        age      = fminf(fmaxf(age, min_age), max_age);
         v.anchor = Wrap((float)wi_ - age);
 
         // Random fixed stereo spot; each buffer leans to its own side.
@@ -271,12 +274,12 @@ class ScriptOne : public Script
         v.pan_r         = sinf(ang);
 
         // First micro-grain starts at its peak so the slice begins at full level.
-        v.g_n[0]  = kH;
+        v.g_n[0]   = kH;
         v.g_pos[0] = Cursor(v, 0) - v.dir * kH;
-        v.g_on[0] = true;
-        v.g_on[1] = false;
-        v.active  = true;
-        flash_    = true;
+        v.g_on[0]  = true;
+        v.g_on[1]  = false;
+        v.active   = true;
+        flash_     = true;
     }
 
     float Tick(Voice& v)
@@ -300,10 +303,10 @@ class ScriptOne : public Script
         // Spawn the next micro-grain every hop.
         if(v.m > 0 && v.m % kH == 0)
         {
-            const int slot  = (v.m / kH) & 1;
-            v.g_pos[slot] = Cursor(v, v.m);
-            v.g_n[slot]   = 0;
-            v.g_on[slot]  = true;
+            const int slot = (v.m / kH) & 1;
+            v.g_pos[slot]  = Cursor(v, v.m);
+            v.g_n[slot]    = 0;
+            v.g_on[slot]   = true;
         }
 
         float out = 0.f;

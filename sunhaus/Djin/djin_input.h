@@ -28,8 +28,8 @@ class InputConform
         decay_ = expf(-1.f / (0.2f * sr));
         slew_  = 1.f / (0.03f * sr);
         env_l_ = env_r_ = 0.f;
-        cnt_   = 0;
-        mode_  = STEREO;
+        cnt_            = 0;
+        mode_           = STEREO;
         to_r_ = to_l_ = 0.f;
     }
 
@@ -66,7 +66,7 @@ class InputConform
 
     void Decide()
     {
-        const size_t hold_to_mono   = (size_t)sr_;        // 1 s
+        const size_t hold_to_mono   = (size_t)sr_; // 1 s
         const size_t hold_to_stereo = (size_t)(0.1f * sr_);
 
         if(mode_ == STEREO)

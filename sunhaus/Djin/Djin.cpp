@@ -45,26 +45,26 @@ float DSY_SDRAM_BSS djin::ScriptOne::buf_[2][djin::ScriptOne::kBufLen];
 
 DaisySunhaus hw;
 
-static constexpr int    kNumScripts = 6;
+static constexpr int kNumScripts = 6;
 // Steady LED level in the menu and inside an effect; both flash to 100% N times
 // every 3 s for effect N.
-static constexpr float  kMenuBase   = 0.0f;
-static constexpr float  kRunBase    = 0.4f;
+static constexpr float kMenuBase = 0.0f;
+static constexpr float kRunBase  = 0.4f;
 // Flicker the LED on every slice as well (off: only the effect-number blinks).
 static constexpr bool   kGrainFlash = false;
 static constexpr size_t kMaxBlock   = 128;
 // The pedal's analog input stage (22k / 10k divider) takes about 10 dB off, and a
 // guitar lands near -36 dBFS, so restore the level digitally. The limiter in the
 // chain catches the peaks.
-static constexpr float  kInputGain  = 6.f;
+static constexpr float kInputGain = 6.f;
 // Development convenience: start straight in Effect 1 instead of Sleep, so a
 // reset (for example connecting the ST-Link) does not silence the pedal. Set to
 // false for the power-on Sleep behaviour in the spec.
-static constexpr bool   kBootIntoEffect = true;
+static constexpr bool kBootIntoEffect = true;
 // Codec self-check: a live input is never exactly zero (an open jack still shows
 // noise), so seconds of all-zero samples means the codec has stopped delivering.
 // Recover by pulsing its reset and restarting the audio.
-static constexpr float  kInputDeadSeconds = 3.f;
+static constexpr float kInputDeadSeconds = 3.f;
 
 static djin::ScriptOne         g_script_one;
 static djin::PassthroughScript g_placeholder[kNumScripts - 1];
@@ -76,16 +76,16 @@ static djin::Compressor   g_comp;
 static djin::Limiter      g_limiter;
 
 // Main loop -> audio callback
-static volatile djin::Script* g_active  = nullptr;
-static volatile bool          g_run     = false; // script audio on
-static volatile bool          g_fx_on   = true;  // effect (vs clean bypass)
-static volatile float         g_fade_s  = 0.02f; // fade-out time when g_run drops
-static volatile float         g_volume  = 0.f;
-static volatile float         g_blend   = 1.f;
-static volatile float         g_led     = 0.f; // 0..1 LED level
-static volatile uint32_t      g_cb_count = 0;
-static volatile bool          g_input_dead = false;
-static volatile uint32_t      g_recoveries = 0;
+static volatile djin::Script* g_active = nullptr;
+static volatile bool          g_run    = false; // script audio on
+static volatile bool          g_fx_on  = true;  // effect (vs clean bypass)
+static volatile float    g_fade_s     = 0.02f; // fade-out time when g_run drops
+static volatile float    g_volume     = 0.f;
+static volatile float    g_blend      = 1.f;
+static volatile float    g_led        = 0.f; // 0..1 LED level
+static volatile uint32_t g_cb_count   = 0;
+static volatile bool     g_input_dead = false;
+static volatile uint32_t g_recoveries = 0;
 
 // Software PWM for the LED (D21 has no timer channel). It must run from a real
 // timebase: the audio callback executes its samples back to back in microseconds,
@@ -93,9 +93,9 @@ static volatile uint32_t      g_recoveries = 0;
 // A 32 kHz timer interrupt gives 32 steps per 1 kHz PWM period, with first-order
 // error diffusion across periods so dim levels get fine resolution.
 // Level -> duty: gain, then gamma (lower gamma is brighter).
-static constexpr float kLedGain  = 1.0f;
-static constexpr float kLedGamma = 1.0f;
-static constexpr int   kLedSteps = 32;
+static constexpr float kLedGain   = 1.0f;
+static constexpr float kLedGamma  = 1.0f;
+static constexpr int   kLedSteps  = 32;
 static constexpr float kLedTickHz = 32000.f;
 static volatile float  g_led_duty = 0.f; // 0..1, set by the main loop
 static int             g_led_k    = 0;
@@ -131,13 +131,13 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
                           AudioHandle::OutputBuffer out,
                           size_t                    size)
 {
-    static float xl[kMaxBlock], xr[kMaxBlock], wl[kMaxBlock], wr[kMaxBlock];
-    static float run_gain = 0.f, fx_mix = 1.f;
+    static float    xl[kMaxBlock], xr[kMaxBlock], wl[kMaxBlock], wr[kMaxBlock];
+    static float    run_gain = 0.f, fx_mix = 1.f;
     static uint32_t zero_run = 0;
 
     if(size > kMaxBlock)
         size = kMaxBlock;
-    const float sr = hw.AudioSampleRate();
+    const float    sr         = hw.AudioSampleRate();
     const uint32_t zero_limit = (uint32_t)(kInputDeadSeconds * sr);
 
     for(size_t i = 0; i < size; i++)
@@ -158,13 +158,13 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
     }
     g_input.Process(xl, xr, size);
 
-    djin::Script* script = (djin::Script*)g_active;
-    const bool    run    = g_run;
-    const bool    fx_on  = g_fx_on;
-    const float   blend  = g_blend;
-    const float   vol    = g_volume * g_volume;
-    const float   up     = 1.f / (0.02f * sr);
-    const float   down   = 1.f / (fmaxf(g_fade_s, 0.005f) * sr);
+    djin::Script* script  = (djin::Script*)g_active;
+    const bool    run     = g_run;
+    const bool    fx_on   = g_fx_on;
+    const float   blend   = g_blend;
+    const float   vol     = g_volume * g_volume;
+    const float   up      = 1.f / (0.02f * sr);
+    const float   down    = 1.f / (fmaxf(g_fade_s, 0.005f) * sr);
     const float   fx_step = 1.f / (0.02f * sr);
 
     const bool process = script && (run || run_gain > 0.f);
@@ -249,26 +249,25 @@ int main(void)
     g_led_tim.SetCallback(FastTick);
     g_led_tim.Start();
 
-    Mode     mode        = Mode::SLEEP;
-    int      cur         = 0; // loaded script index, 0..5
-    int      sel         = 0; // effect shown in the menu
-    uint32_t menu_start  = 0; // restarts the menu blink count
-    uint32_t mode_since  = System::GetNow();
-    uint32_t run_since   = 0;
-    bool     sw_down     = false;
-    float    flash       = 0.f;
-    uint32_t last_log    = 0;
+    Mode     mode       = Mode::SLEEP;
+    int      cur        = 0; // loaded script index, 0..5
+    int      sel        = 0; // effect shown in the menu
+    uint32_t menu_start = 0; // restarts the menu blink count
+    uint32_t mode_since = System::GetNow();
+    uint32_t run_since  = 0;
+    bool     sw_down    = false;
+    float    flash      = 0.f;
+    uint32_t last_log   = 0;
 
-    auto load = [&](int idx, bool reset_fx)
-    {
+    auto load = [&](int idx, bool reset_fx) {
         cur = idx;
         g_scripts[cur]->Activate();
         g_active = g_scripts[cur];
         if(reset_fx)
             g_fx_on = true;
-        g_fade_s = 0.02f;
-        g_run    = true;
-        mode     = Mode::RUN;
+        g_fade_s  = 0.02f;
+        g_run     = true;
+        mode      = Mode::RUN;
         run_since = System::GetNow();
     };
     if(kBootIntoEffect)
@@ -286,7 +285,8 @@ int main(void)
         if(g_input_dead)
         {
             g_input_dead = false;
-            if(hw.seed.CheckBoardVersion() == DaisySeed::BoardVersion::DAISY_SEED)
+            if(hw.seed.CheckBoardVersion()
+               == DaisySeed::BoardVersion::DAISY_SEED)
                 hw.seed.codec.Init(Pin(PORTB, 11));
             hw.StopAudio();
             hw.DelayMs(5);
@@ -298,8 +298,8 @@ int main(void)
         const int menu_inc = hw.GetEncoderIncrement(DaisySunhaus::ENC_MENU);
 
         // Menu switch: a tap, detected on release.
-        bool short_tap = false;
-        const bool down = hw.MenuSwitchPressed();
+        bool       short_tap = false;
+        const bool down      = hw.MenuSwitchPressed();
         if(down && !sw_down)
             sw_down = true;
         else if(!down && sw_down)
@@ -384,22 +384,23 @@ int main(void)
             }
         }
         flash *= 0.96f; // about 25 ms decay at the 1 kHz loop rate
-        g_led = led;
+        g_led      = led;
         g_led_duty = powf(fminf(fmaxf(led * kLedGain, 0.f), 1.f), kLedGamma);
 
         // --- Log ---
         if(now - last_log >= 500)
         {
             last_log = now;
-            hw.seed.PrintLine("mode=%d script=%d fx=%d in=%d main=%d len=%d cb=%lu rec=%lu",
-                              (int)mode,
-                              cur + 1,
-                              (int)g_fx_on,
-                              (int)g_input.GetMode(),
-                              cur == 0 ? g_script_one.MainPos() : 0,
-                              cur == 0 ? g_script_one.LenStep() : 0,
-                              (unsigned long)g_cb_count,
-                              (unsigned long)g_recoveries);
+            hw.seed.PrintLine(
+                "mode=%d script=%d fx=%d in=%d main=%d len=%d cb=%lu rec=%lu",
+                (int)mode,
+                cur + 1,
+                (int)g_fx_on,
+                (int)g_input.GetMode(),
+                cur == 0 ? g_script_one.MainPos() : 0,
+                cur == 0 ? g_script_one.LenStep() : 0,
+                (unsigned long)g_cb_count,
+                (unsigned long)g_recoveries);
         }
 
         System::Delay(1);

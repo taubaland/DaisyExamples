@@ -12,9 +12,9 @@ class TapeEmu
   public:
     void Init(float sr)
     {
-        sr_       = sr;
-        lp_coef_  = OnePole(14000.f);
-        bump_     = OnePole(90.f);
+        sr_      = sr;
+        lp_coef_ = OnePole(14000.f);
+        bump_    = OnePole(90.f);
         lp_l_ = lp_r_ = bump_l_ = bump_r_ = 0.f;
     }
 
@@ -28,10 +28,7 @@ class TapeEmu
     static constexpr float kDrive    = 1.3f;
     static constexpr float kBumpGain = 0.18f;
 
-    float OnePole(float fc) const
-    {
-        return 1.f - expf(-6.2831853f * fc / sr_);
-    }
+    float OnePole(float fc) const { return 1.f - expf(-6.2831853f * fc / sr_); }
 
     float Channel(float x, float& lp, float& bump) const
     {
@@ -63,10 +60,10 @@ class Compressor
     void Process(float& l, float& r)
     {
         const float lvl = fmaxf(fabsf(l), fabsf(r));
-        env_ = lvl > env_ ? atk_ * env_ + (1.f - atk_) * lvl
+        env_            = lvl > env_ ? atk_ * env_ + (1.f - atk_) * lvl
                           : rel_ * env_ + (1.f - rel_) * lvl;
-        const float db   = 20.f * log10f(env_ + 1e-9f);
-        const float over = db - kThresholdDb;
+        const float db    = 20.f * log10f(env_ + 1e-9f);
+        const float over  = db - kThresholdDb;
         float       gr_db = 0.f;
         if(over > kKneeDb * 0.5f)
             gr_db = -over * (1.f - 1.f / kRatio);
