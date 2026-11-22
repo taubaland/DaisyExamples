@@ -51,9 +51,9 @@ static const float kDetuneCents[kMaxVoices]
 static Oscillator osc[kMaxVoices];
 
 // Shared between main loop and audio callback
-static volatile float g_gain   = 0.f;
-static volatile float g_blend  = 0.f;
-static volatile bool  g_mute   = false;
+static volatile float g_gain  = 0.f;
+static volatile float g_blend = 0.f;
+static volatile bool  g_mute  = false;
 
 // Audio diagnostics (written by the audio callback, read by the log)
 static volatile uint32_t g_cb_count = 0;
@@ -77,7 +77,7 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
                           AudioHandle::OutputBuffer out,
                           size_t                    size)
 {
-    const float gain  = g_mute ? 0.f : g_gain;
+    const float gain = g_mute ? 0.f : g_gain;
     // blend 0..1 -> 1..7 voices; a voice fades in over one "step" of blend
     const float voices = 1.f + g_blend * (kMaxVoices - 1);
     float       w[kMaxVoices];
@@ -125,13 +125,13 @@ int main(void)
     hw.Init();
     hw.seed.StartLog(false);
 
-    int      note        = 57; // A3
-    int      octave      = 0;
-    int      wave_idx    = 0;
-    int32_t  enc_count   = 0; // net detents, for the log
-    int32_t  menu_count  = 0;
-    uint32_t press_count = 0;
-    uint32_t mom_count   = 0;
+    int      note          = 57; // A3
+    int      octave        = 0;
+    int      wave_idx      = 0;
+    int32_t  enc_count     = 0; // net detents, for the log
+    int32_t  menu_count    = 0;
+    uint32_t press_count   = 0;
+    uint32_t mom_count     = 0;
     uint32_t last_activity = 0;
     uint32_t last_log      = 0;
     float    last_gain = 0.f, last_blend = 0.f;
@@ -194,7 +194,8 @@ int main(void)
             }
             else
             {
-                wave_idx = (wave_idx + (inc > 0 ? 1 : kNumWaves - 1)) % kNumWaves;
+                wave_idx
+                    = (wave_idx + (inc > 0 ? 1 : kNumWaves - 1)) % kNumWaves;
                 for(int v = 0; v < kMaxVoices; v++)
                     osc[v].SetWaveform(kWaves[wave_idx]);
             }
@@ -226,10 +227,11 @@ int main(void)
         // --- Log ---
         if(now - last_log >= 200)
         {
-            last_log = now;
+            last_log      = now;
             const float n = note + 12.f * octave;
             hw.seed.PrintLine(
-                "gain=%d blend=%d voices=%d note=%d oct=%d hz=%d wave=%s mute=%d "
+                "gain=%d blend=%d voices=%d note=%d oct=%d hz=%d wave=%s "
+                "mute=%d "
                 "enc=%ld menu=%ld press=%lu mom=%lu encAB=%d%d cb=%lu "
                 "inL=%d inR=%d out=%d",
                 (int)(gain * 1000),
